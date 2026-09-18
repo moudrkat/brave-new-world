@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brave New World</title>
+  <meta name="description" content="A very small mind dreams the world you ask for, entirely inside your browser, and the page becomes that world." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style id="world-style"></style>
+</head>
+<body class="world-zero">
+  <!-- world zero: what the page looks like before anyone has asked for a world -->
+  <header class="mast">
+    <h1 class="title"><span>Brave</span> <span class="new">New</span> <span>World</span></h1>
+    <p class="motto">the brave new world is, in fact, always inside</p>
+  </header>
+  <main class="veil">
+    <p class="veil-line">There is a very small mind sleeping in this tab.</p>
+    <p class="veil-sub">This is not a chat. You make one wish, and this page becomes that world:<br />its colors, its things, its words, and the panel you are wishing from.<br />Then it hands you a few levers it invented. Nothing leaves your browser.</p>
+    <p class="dedication">for everyone brave enough to leave the old world, whatever that means for them now</p>
+  </main>
+
+  <!-- the console lives inside whatever world is dreamed; app.js moves it there -->
+  <bnw-console></bnw-console>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

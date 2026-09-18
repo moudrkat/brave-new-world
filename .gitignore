@@ -1,0 +1,5 @@
+# scratch, drafts, personal
+notes/
+
+# eval output too big for the space itself
+evals/*.json

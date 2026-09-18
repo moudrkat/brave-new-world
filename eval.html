@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brave New World · eval</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <style>
+    :root { --ink:#07060b; --ivory:#efe6d6; --dim:rgba(239,230,214,.55); --line:rgba(239,230,214,.12); --amber:#e0a458; --violet:#9b6bff; --rose:#ff5c8a; }
+    body { margin:0; background:var(--ink); color:var(--ivory); font-family:"JetBrains Mono",monospace; font-size:12px; padding:24px 28px 60px; }
+    h1 { font-family:"Cormorant Garamond",serif; font-weight:300; font-size:26px; letter-spacing:.2em; text-transform:uppercase; margin:0 0 4px; }
+    h1 i { color:var(--amber); }
+    .sub { font-family:"Cormorant Garamond",serif; font-style:italic; font-size:15px; color:var(--dim); margin:0 0 22px; }
+    fieldset { border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin:0 0 14px; }
+    legend { color:var(--amber); letter-spacing:.14em; padding:0 6px; }
+    label { display:inline-flex; gap:6px; align-items:center; margin:4px 16px 4px 0; color:var(--dim); cursor:pointer; }
+    label:has(input:checked) { color:var(--ivory); }
+    input[type=number] { width:64px; background:transparent; border:0; border-bottom:1px solid var(--line); color:var(--ivory); font:inherit; padding:2px 4px; }
+    button { background:transparent; border:1px solid var(--line); border-radius:999px; color:var(--amber); font:inherit; padding:6px 16px; cursor:pointer; margin-right:8px; }
+    button:hover { border-color:var(--amber); }
+    button:disabled { opacity:.35; cursor:wait; }
+    #status { margin:14px 0; color:var(--dim); letter-spacing:.08em; min-height:16px; }
+    #status.warn { color:var(--rose); }
+    table { border-collapse:collapse; width:100%; margin-top:12px; }
+    th, td { text-align:right; padding:6px 8px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    th { color:var(--dim); font-weight:400; letter-spacing:.08em; }
+    td:first-child, th:first-child { text-align:left; }
+    tr.best td { color:var(--amber); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px; margin-top:14px; }
+    .card { border:1px solid var(--line); border-radius:6px; overflow:hidden; background:#0e0c16; }
+    .card iframe { width:840px; height:520px; border:0; transform:scale(.25); transform-origin:0 0; display:block; pointer-events:none; }
+    .card .shot { width:210px; height:130px; overflow:hidden; }
+    .card .meta { padding:6px 8px; color:var(--dim); font-size:10.5px; line-height:1.5; border-top:1px solid var(--line); }
+    .card .meta b { color:var(--ivory); font-weight:400; }
+    h2 { font-family:"Cormorant Garamond",serif; font-weight:300; font-style:italic; font-size:20px; margin:30px 0 6px; color:var(--dim); }
+    .bar { display:inline-block; height:6px; background:var(--violet); vertical-align:middle; margin-left:6px; border-radius:3px; }
+  </style>
+</head>
+<body>
+  <h1>Brave <i>New</i> World · eval</h1>
+  <p class="sub">which small mind dreams the best page? every model gets the same prompt, the same wishes, the same settings the app ships with.</p>
+
+  <fieldset>
+    <legend>minds</legend>
+    <div id="models"></div>
+  </fieldset>
+  <fieldset>
+    <legend>tongues</legend>
+    <div id="strategies"></div>
+  </fieldset>
+  <fieldset>
+    <legend>run</legend>
+    <label>wishes <input id="nwishes" type="number" min="1" max="32" value="32" /></label>
+    <label>max tokens <input id="maxtok" type="number" min="200" max="2000" value="1200" /></label>
+    <label>seed <input id="seed" type="number" value="7" /></label>
+    <label>temperature <input id="temp" type="number" min="0" max="1.5" step="0.05" value="0.7" /></label>
+    <button id="run">run</button>
+    <button id="stop" disabled>stop</button>
+    <button id="json" disabled>download json</button>
+    <button id="md" disabled>copy markdown</button>
+  </fieldset>
+  <div id="status">idle</div>
+
+  <table id="table" hidden>
+    <thead><tr>
+      <th>mind</th><th>vram MB</th><th>load s</th><th>tok/s</th><th>tokens</th><th>errors</th><th>broken</th><th>dead</th><th>variety</th>
+      <th>complete</th><th>clean</th><th>style</th><th>colors</th><th>decor</th><th>text</th><th>wish</th><th>loop</th><th>visual</th><th>sense</th><th>original</th><th>prose</th><th>total</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <div id="cards"></div>
+
+  <script type="module" src="eval.js"></script>
+</body>
+</html>

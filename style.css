@@ -1,0 +1,73 @@
+/* World zero only. Everything the console needs is inside console.js, so a
+   dreamed world can replace this whole stylesheet's subject without touching it. */
+
+body.world-zero {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% 40%, #16122a 0%, #07060b 65%);
+  color: #efe6d6;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 300;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.world-zero .mast { padding: 26px 28px 0; }
+
+body.world-zero .title {
+  margin: 0;
+  font-weight: 300;
+  font-size: 28px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+body.world-zero .title .new { font-style: italic; color: #e0a458; letter-spacing: 0.26em; }
+
+body.world-zero .motto {
+  margin: 8px 0 0 2px;
+  font-style: italic;
+  font-size: 15px;
+  color: rgba(239, 230, 214, 0.55);
+}
+
+body.world-zero .veil {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 40px 28px 260px;
+}
+
+body.world-zero .veil-line {
+  margin: 0;
+  font-size: clamp(22px, 3.2vw, 40px);
+  font-style: italic;
+  line-height: 1.25;
+  max-width: 640px;
+  text-shadow: 0 0 40px rgba(224, 164, 88, 0.25);
+}
+
+body.world-zero .veil-sub {
+  margin: 18px 0 0;
+  font-size: 17px;
+  line-height: 1.55;
+  color: rgba(239, 230, 214, 0.55);
+}
+
+body.world-zero .dedication {
+  margin: 48px 0 0;
+  font-style: italic;
+  font-size: 13.5px;
+  letter-spacing: 0.04em;
+  color: rgba(239, 230, 214, 0.32);
+}
+
+@media (max-width: 720px) {
+  body.world-zero .mast { padding: 16px; }
+  body.world-zero .title { font-size: 20px; }
+}
+
+html.low-power * { animation: none !important; filter: none !important; text-shadow: none !important; }
