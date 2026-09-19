@@ -105,7 +105,7 @@ const CSS = `
 .veil { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8vh 6vw; opacity: 0; transition: opacity 1.2s ease; background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 78%, transparent), transparent 72%); }
 .veil.on { opacity: 1; }
 .veil.forming { background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 40%, transparent), transparent 72%); }
-.veil-inner { display: none; }
+.veil-inner { display: none !important; }
 .veil.forming { background: none; }
 :host([data-side="top"]) .veil { justify-content: flex-end; padding-bottom: 12vh; }
 :host([data-side="bottom"]) .veil, :host(:not([data-side])) .veil { justify-content: flex-start; padding-top: 12vh; }

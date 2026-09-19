@@ -590,6 +590,7 @@ body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-f
 @keyframes nudge { 0% { rotate: 0deg; } 30% { rotate: -3deg; } 60% { rotate: 3deg; } 100% { rotate: 0deg; } }
 @keyframes swing { 0% { rotate: 0deg; } 25% { rotate: -6deg; } 55% { rotate: 5deg; } 80% { rotate: -2deg; } 100% { rotate: 0deg; } }
 @keyframes shoot { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: -120px 44px; } }
+.el:not(.ghost) { z-index: 1; } /* a real thing wins the tap over the ghost behind it */
 .el.ghost { mix-blend-mode: screen; animation: ghost calc(5s / var(--speed)) ease-in-out infinite alternate; pointer-events: auto; }
 .el.ghost:hover { animation: none; opacity: 0.7; }
 @keyframes ghost { from { opacity: 0.05; } to { opacity: var(--gmax, 0.35); } }
@@ -820,7 +821,9 @@ export function surprise(spec, index, rnd = Math.random) {
     deer: () => { n.elements.splice(index, 1); n.weather = "fog"; return "the deer looked at you, then was gone"; },
     jellyfish: () => { n.ground = "sea"; e.count = step(e.count, 2); n.weather = "bubbles"; return "the jellyfish brought the sea up with them"; },
   };
-  if (special[e.kind]) { const note = special[e.kind](); n.elements = n.elements.slice(-9); return { spec: n, note }; }
+  const same = () => JSON.stringify(n) === JSON.stringify(spec);
+  // a story already told (the sky is already full of stars) gives way to something else
+  if (special[e.kind]) { const note = special[e.kind](); n.elements = n.elements.slice(-9); if (!same()) return { spec: n, note }; }
   const generic = [
     () => { e.count = step(e.count, 1); return `more ${e.kind}`; },
     () => { e.size = sizes[Math.min(sizes.length - 1, sizes.indexOf(e.size) + 1)]; return `a bigger ${e.kind}`; },
@@ -835,8 +838,10 @@ export function surprise(spec, index, rnd = Math.random) {
     () => { const t = TIMES[(TIMES.indexOf(n.time) + 1) % TIMES.length]; Object.assign(n, applyAction(n, "set time " + t)); return `and it became ${t}`; },
     () => { n.motion = n.motion === "restless" ? "still" : "restless"; return n.motion === "still" ? "and everything held still" : "and everything stirred"; },
   ];
-  const note = pick(generic)();
-  return { spec: n, note: rnd() < 0.7 ? `${note}, ${pick(twist)()}` : note };
+  let note = pick(generic)();
+  if (same()) note = pick(twist)().replace(/^and /, "");
+  else if (rnd() < 0.7) note = `${note}, ${pick(twist)()}`;
+  return { spec: n, note };
 }
 // a tap on the ground: something grows where it landed
 export function sprout(spec, xFrac, rnd = Math.random) {

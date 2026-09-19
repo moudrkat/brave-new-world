@@ -11,6 +11,8 @@
 // were dreamt. Nothing is edited; one of the real dreams is chosen.
 import { writeFileSync } from "node:fs";
 const TAKES = Math.max(1, +(process.env.TAKES || 1));
+const ALL_TAKES = process.env.ALL_TAKES || ""; // a path: every take is kept there too, scores included, for a human eye
+const everyTake = [];
 
 const PORT = process.env.CDP_PORT || 9333;
 const [base, ...wishes] = process.argv.slice(2);
@@ -54,6 +56,7 @@ for (const wish of wishes) {
     const score = await evaluate(`(async () => { const m = await import("./mind.js"); const s = window.__bnw.worlds.at(-1).spec; return s ? { sense: m.sense(s, ${JSON.stringify(wish)}), original: m.originality(s) } : null; })()`);
     console.log(`${wish} · take ${k + 1} → "${d.spec?.title}" · ${d.tokens.length} tokens · ${d.seconds?.toFixed(1)} s · retries ${d.retries} · sense ${score?.sense?.toFixed(2)} original ${score?.original?.toFixed(2)} · console ${d.spec?.console.side}/${d.spec?.console.tone}/${d.spec?.console.shape} · levers ${d.spec?.console.buttons.map((b) => b.label + "→" + b.action).join(", ")}`);
     if (d.spec && score) takes.push({ d, key: score.sense * 2 + score.original });
+    if (d.spec) everyTake.push({ wish, take: k + 1, score, d });
   }
   if (!takes.length) { console.log("  nothing usable, skipped"); continue; }
   takes.sort((a, b) => b.key - a.key);
@@ -72,3 +75,4 @@ const header = `// Dreams the shipped model actually had, recorded by tools/reco
 `;
 writeFileSync(new URL("../demos.js", import.meta.url), header + "export const DEMOS = " + JSON.stringify(demos) + ";\n");
 console.log(`wrote demos.js with ${demos.length} dreams`);
+if (ALL_TAKES) { writeFileSync(ALL_TAKES, JSON.stringify(everyTake)); console.log(`all ${everyTake.length} takes in ${ALL_TAKES}`); }
