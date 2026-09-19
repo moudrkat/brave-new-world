@@ -5,7 +5,12 @@
 // the ghosts, the certainty of its words. Nothing in demos.js is hand-made.
 //
 //   node tools/record-demos.mjs http://localhost:8765 "a quiet island at dusk" "a neon city in the rain" ...
+//
+// TAKES=3 dreams each wish that many times and keeps the one that best matches
+// the wish (sense, then originality, from mind.js); the header says how many
+// were dreamt. Nothing is edited; one of the real dreams is chosen.
 import { writeFileSync } from "node:fs";
+const TAKES = Math.max(1, +(process.env.TAKES || 1));
 
 const PORT = process.env.CDP_PORT || 9333;
 const [base, ...wishes] = process.argv.slice(2);
@@ -35,16 +40,25 @@ if (!(await evaluate(`!!window.__bnw.engine`))) throw new Error("the mind did no
 console.log("awake");
 
 const demos = [];
+let dreamt = 0;
 for (const wish of wishes) {
-  // each demo starts from world zero, so none is an edit of the one before
-  await evaluate(`window.__bnw.current = 0; (() => { const c = document.querySelector("bnw-console"); c.wish = ${JSON.stringify(wish)}; c.submit(); })()`);
-  const before = await evaluate(`window.__bnw.worlds.length`);
-  for (let i = 0; i < 120; i++) { await sleep(1000); if ((await evaluate(`window.__bnw.worlds.length`)) > before - 1 && !(await evaluate(`window.__bnw.dreaming`)) && (await evaluate(`window.__bnw.worlds.length`)) > before) break; }
-  const w = await evaluate(`JSON.stringify((() => { const w = window.__bnw.worlds.at(-1); return { wish: w.wish, spec: w.spec, ghosts: w.ghosts, certainty: w.certainty, raw: w.raw, retries: w.retries, issues: w.issues.map(i => i.kind), seconds: w.seconds, model: w.model, date: w.date, tokens: w.tokens.map(t => ({ token: t.token, p: +t.p.toFixed(3), alts: t.alts.slice(0, 5).map(a => ({ token: a.token, p: +a.p.toFixed(3) })) })) }; })())`);
-  const d = JSON.parse(w);
-  console.log(`${wish} → "${d.spec?.title}" · ${d.tokens.length} tokens · ${d.seconds?.toFixed(1)} s · retries ${d.retries} · console ${d.spec?.console.side}/${d.spec?.console.tone}/${d.spec?.console.shape} · buttons ${d.spec?.console.buttons.map((b) => b.label + "→" + b.action).join(", ")}`);
-  if (!d.spec) { console.log("  no spec, skipped"); continue; }
-  demos.push(d);
+  const takes = [];
+  for (let k = 0; k < TAKES; k++) {
+    // each demo starts from world zero, so none is an edit of the one before
+    const before = await evaluate(`window.__bnw.worlds.length`);
+    await evaluate(`window.__bnw.current = 0; (() => { const c = document.querySelector("bnw-console"); c.wish = ${JSON.stringify(wish)}; c.submit(); })()`);
+    for (let i = 0; i < 300; i++) { await sleep(1000); if ((await evaluate(`window.__bnw.worlds.length`)) > before && !(await evaluate(`window.__bnw.dreaming`))) break; }
+    const w = await evaluate(`JSON.stringify((() => { const w = window.__bnw.worlds.at(-1); return { wish: w.wish, spec: w.spec, ghosts: w.ghosts, certainty: w.certainty, raw: w.raw, retries: w.retries, issues: w.issues.map(i => i.kind), seconds: w.seconds, model: w.model, date: w.date, tokens: w.tokens.map(t => ({ token: t.token, p: +t.p.toFixed(3), alts: t.alts.slice(0, 5).map(a => ({ token: a.token, p: +a.p.toFixed(3) })) })) }; })())`);
+    const d = JSON.parse(w);
+    dreamt++;
+    const score = await evaluate(`(async () => { const m = await import("./mind.js"); const s = window.__bnw.worlds.at(-1).spec; return s ? { sense: m.sense(s, ${JSON.stringify(wish)}), original: m.originality(s) } : null; })()`);
+    console.log(`${wish} · take ${k + 1} → "${d.spec?.title}" · ${d.tokens.length} tokens · ${d.seconds?.toFixed(1)} s · retries ${d.retries} · sense ${score?.sense?.toFixed(2)} original ${score?.original?.toFixed(2)} · console ${d.spec?.console.side}/${d.spec?.console.tone}/${d.spec?.console.shape} · levers ${d.spec?.console.buttons.map((b) => b.label + "→" + b.action).join(", ")}`);
+    if (d.spec && score) takes.push({ d, key: score.sense * 2 + score.original });
+  }
+  if (!takes.length) { console.log("  nothing usable, skipped"); continue; }
+  takes.sort((a, b) => b.key - a.key);
+  console.log(`  kept "${takes[0].d.spec.title}"`);
+  demos.push(takes[0].d);
 }
 s.close();
 await fetch(`http://localhost:${PORT}/json/close/${id}`);
@@ -53,7 +67,8 @@ const header = `// Dreams the shipped model actually had, recorded by tools/reco
 // from the real app: the spec it wrote, every token with the certainty it
 // gave it, the ghosts, and the per-character certainty of its words. They are
 // replayed on the page without a model, so a phone with no WebGPU still
-// sees what this is. Nothing in here was written by hand.
+// sees what this is. Nothing in here was written by hand or edited; of the
+// ${dreamt} dreams recorded on ${new Date().toISOString().slice(0, 10)}, the ${demos.length} that best matched their wish were kept.
 `;
 writeFileSync(new URL("../demos.js", import.meta.url), header + "export const DEMOS = " + JSON.stringify(demos) + ";\n");
 console.log(`wrote demos.js with ${demos.length} dreams`);

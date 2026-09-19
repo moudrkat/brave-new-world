@@ -154,6 +154,14 @@ const CSS = `
 /* ---- waking, and the dreams it already had ---- */
 .wakebox { margin-top: 12px; }
 .wakebox[hidden] { display: none; }
+/* inside a world the world comes first: the wake box is one quiet line, the dreams fold into one button */
+:host([data-world]) .wake { font-size: 15px; padding: 8px 14px; min-height: 0; animation: none; background: transparent; border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+:host([data-world]) .wake small { display: inline; margin: 0 0 0 10px; }
+:host([data-world]) .wakebox { margin-top: 10px; }
+:host([data-world]) .demos .lead, :host([data-world]) .chips .chip:not(.next) { display: none; }
+:host([data-world]) .demos { margin-top: 8px; }
+.chip.next { display: none; }
+:host([data-world]) .chip.next { display: inline-block; font-size: 13.5px; padding: 4px 12px; min-height: 0; }
 .wake {
   display: block; width: 100%; position: relative; overflow: hidden;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
@@ -457,9 +465,16 @@ export class BnwConsole extends HTMLElement {
     list.forEach((d, i) => {
       const b = document.createElement("button");
       b.type = "button"; b.className = "chip"; b.textContent = d.wish;
-      b.addEventListener("click", () => onPick(i));
+      b.addEventListener("click", () => { this._demo = i; onPick(i); });
       chips.appendChild(b);
     });
+    if (list.length > 1) {
+      // inside a world: one small button that steps into the next remembered dream
+      const n = document.createElement("button");
+      n.type = "button"; n.className = "chip next"; n.textContent = "another dream it had";
+      n.addEventListener("click", () => { this._demo = ((this._demo ?? -1) + 1) % list.length; onPick(this._demo); });
+      chips.appendChild(n);
+    }
     this.$("demos").hidden = this.awake || !list.length;
   }
 
@@ -532,11 +547,12 @@ export class BnwConsole extends HTMLElement {
     this.sky.feed(p, alts.length);
   }
 
-  updateStats(t0, n, note) {
-    const secs = (performance.now() - t0) / 1000;
+  updateStats(t0, n, note, secondsThen = null) {
+    const secs = secondsThen ?? (performance.now() - t0) / 1000;
     const mean = this.probs.reduce((a, b) => a + b, 0) / Math.max(1, this.probs.length);
     const hes = this.probs.filter((p) => p < 0.35).length;
-    this.$("stats").textContent = `${n} tokens · ${(n / Math.max(0.1, secs)).toFixed(1)} tok/s · ${(mean * 100).toFixed(0)}% sure · ${hes} hesitations` + (note ? " · " + note : "");
+    const speed = secondsThen != null ? `${secondsThen.toFixed(0)} s that day` : `${(n / Math.max(0.1, secs)).toFixed(1)} tok/s`;
+    this.$("stats").textContent = `${n} tokens · ${speed} · ${(mean * 100).toFixed(0)}% sure · ${hes} hesitations` + (note ? " · " + note : "");
     this.drawSpark();
   }
 

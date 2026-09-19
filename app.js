@@ -327,10 +327,13 @@ async function dream(wish, fork = null) {
   state.dreaming = false;
   con.setDreaming(false);
   con.setStatus(`dreamt in ${((performance.now() - t0) / 1000).toFixed(1)} s` + (retries ? ` after ${retries} ${retries === 1 ? "retry" : "retries"}` : "") + (fork ? " · the road not taken" : " · the levers and the doors are its idea · tap a thing to walk to it"));
+  if (ghosts.length) hintLater(`the faint ${ghosts.length > 1 ? "things are ghosts" : "thing is a ghost"} of what it almost placed · tap one to walk into that world instead`);
   remember(state.worlds[state.current]);
   con.focus();
   scheduleAhead();
 }
+let hintTimer = null;
+function hintLater(text, ms = 7000) { clearTimeout(hintTimer); hintTimer = setTimeout(() => { if (!state.dreaming) con.setStatus(text); }, ms); }
 
 // the door you took was the one it expected: the world was dreamt while you looked
 function takeAhead(a) {
@@ -380,15 +383,16 @@ async function replay(d, { label, status }) {
   const t0 = performance.now();
   const toks = d.tokens || [];
   let prefix = "";
+  const pace = Math.max(6, Math.min(24, 7000 / Math.max(1, toks.length))); // about seven seconds, whatever it wrote
   for (let k = 0; k < toks.length; k++) {
     if (token !== replaying) return;
     const t = toks[k];
     con.paintToken(t.token, t.p, t.alts || [{ token: t.token, p: t.p }], prefix);
     prefix += t.token;
-    if (k % 8 === 0) con.updateStats(t0, k + 1, "replayed");
-    if (k % 3 === 0) await new Promise((r) => setTimeout(r, 12));
+    if (k % 8 === 0) con.updateStats(t0, k + 1, "replayed", d.seconds || null);
+    await new Promise((r) => setTimeout(r, pace));
   }
-  con.updateStats(t0, toks.length, "replayed");
+  con.updateStats(t0, toks.length, "replayed", d.seconds || null);
   applyWorld(html);
   document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
   con.setHarness(label + (d.ghosts?.length ? ` · ${d.ghosts.length} ghost${d.ghosts.length > 1 ? "s" : ""} · tap one to walk into it` : ""));
@@ -398,6 +402,7 @@ async function replay(d, { label, status }) {
   state.dreaming = false;
   con.setDreaming(false);
   con.setStatus(status);
+  if (d.ghosts?.length) hintLater("the faint things are ghosts of what it almost placed · tap a thing to walk to it, a ghost to walk into it");
   remember(state.worlds[state.current]);
   scheduleAhead();
 }
