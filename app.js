@@ -347,11 +347,13 @@ async function dream(wish, fork = null) {
   let messages = fork ? fork.messages : messagesFor(wish, strategy);
   const asked = messages; // what the accepted attempt was asked with, kept for a later fork; retries add to a copy
   const grammar = fork ? forkGrammar(fork.raw, fork.ghost) : null;
-  let report = null, retries = 0, raw = "", t0 = performance.now(), out = null;
+  let report = null, retries = 0, raw = "", t0 = performance.now(), out = null, interrupted = 0;
   const attempts = [];
   try {
     for (;;) {
       out = await generate(engine, messages, wish, strategy, grammar, false, retries ? { temperature: 0.7 } : {});
+      // a stream cut off by a leftover interrupt (a head start aborted a moment ago) is not the model's failure: ask again, quietly
+      if (out.finish === "abort" && state.dreaming && interrupted < 3) { interrupted++; con.setStatus("dreaming · " + wish); continue; }
       raw = out.raw;
       report = dreamToPage(raw, wish, out.finish, strategy, out.tokens);
       attempts.push({ raw, finish: out.finish, tokens: out.n, seconds: out.seconds, issues: report.issues });
