@@ -29,8 +29,10 @@ const WISHES = [
   "a neon city in the rain, everything reflects",
   "a forest of white birches under snow, one red bird",
 ];
-const TYPE_MS = 48, HOLD_ZERO = 2200, HOLD_WORLD = 4200, HOLD_LEVER = 3000, HOLD_END = 3500;
-const RATE_WAKE = 5, RATE_DREAM = 2.2; // the waiting runs faster than it happened; the typing and the worlds stay at 1x
+const TYPE_MS = 38, HOLD_ZERO = 1800, HOLD_WORLD = 3000, HOLD_LEVER = 2000, HOLD_END = 2600;
+// the waiting runs faster than it happened; the typing and the worlds stay at 1x.
+// FILM_RATE=6 node tools/film.mjs --recompose out/brave-new-world re-cuts a take faster without re-recording
+const RATE_WAKE = 6, RATE_DREAM = +(process.env.FILM_RATE || 4.5);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const targets = async () => (await fetch(`http://localhost:${PORT}/json`)).json();
