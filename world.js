@@ -450,7 +450,15 @@ function levers(s, horizon) {
   const els = s.elements;
   const posOf = (e) => ({ x: X[e.x], y: Y[e.y] });
   const taken = [];
-  const clear = (pt) => { let p = { ...pt }; for (let k = 0; k < 6 && taken.some((t) => Math.abs(t.x - p.x) < 14 && Math.abs(t.y - p.y) < 9); k++) p.y += 9; taken.push(p); return p; };
+  // the words' box, by where the model put them: a lever that lands in it steps aside
+  const wb = { top: [28, 72, 0, 44], center: [28, 72, 24, 72], bottom: [28, 72, 52, 100], left: [0, 46, 22, 74], right: [54, 100, 22, 74] }[s.text_place] || [28, 72, 24, 72];
+  const inWords = (p) => p.x > wb[0] && p.x < wb[1] && p.y > wb[2] && p.y < wb[3];
+  const clear = (pt) => {
+    let p = { ...pt };
+    if (inWords(p)) p.x = wb[0] > 0 ? Math.max(6, wb[0] - 12) : Math.min(94, wb[1] + 12);
+    for (let k = 0; k < 6 && taken.some((t) => Math.abs(t.x - p.x) < 14 && Math.abs(t.y - p.y) < 9); k++) p.y += 9;
+    taken.push(p); return p;
+  };
   const html = bs.map((b, i) => {
     const a = parseAction(b.action);
     let pt = null, kind = null;
