@@ -1,16 +1,38 @@
 # Brave New World
 
-A 0.5-billion-parameter language model, running in your browser tab, designs
-the entire page you are looking at: the world, the poem, the font, and the
-control panel you are standing at. Where the panel sits, what the button says,
-which levers it hands you, and which doors lead out of this world into the
-next. It is not a chat. You say a world, or one word, and the page becomes it.
+*The brave new world is, in fact, always inside.*
+
+I had been reading the Shoggoth debates and listening to the world-model
+talks, and at some point I could not resist.
+
+So: in your browser lives a small model, and it creates the world on demand.
+Not a picture of it. The whole page, and the whole UI. You say "a quiet island
+at dusk", or just "sad", or "monday", and the page becomes that world: its
+colors, its things, its poem, and the panel you are standing at. Where the
+panel sits, what the button says, which levers it hands you, and which doors
+lead out of this world into the next one. Then it walks you through.
+
+It is not a chat. Nothing answers you. A world happens to you, and it has
+buttons. Tap a thing and you walk to it. Tap a ghost, the faint thing the
+model almost put there, and you walk into the road it did not take. The door
+it thinks you will choose is already being dreamt while you look.
+
+Is it a shoggoth? Is a shoggoth building you a brave new world? Are you
+walking through the shoggoth itself? Or was the brave new world inside you all
+along?
+
+You might think this is just playful nonsense. Which is, actually, what a
+brave new world can be.
+
+A frontier model would do this far better. That was not the point. The point
+was to make the edge do it: 0.5 billion parameters, 300 MB once, your own GPU,
+and then nothing leaves your browser. Nothing leaves your brave new world.
 
 **Try it:** https://unt1l1f1nd-brave-new-world.static.hf.space
 
-One button wakes the mind (300 MB, once, then nothing leaves your device). No
-model to pick, no settings. Before you wake it, three worlds it already dreamt
-can be stepped into with nothing downloaded, on any browser, on a phone.
+One button wakes the mind. No model to pick, no settings. Before you wake it,
+three worlds it already dreamt can be stepped into with nothing downloaded, on
+any browser, on a phone.
 
 ![a world, dreamed](docs/world.jpg)
 

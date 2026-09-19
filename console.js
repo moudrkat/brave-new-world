@@ -217,7 +217,7 @@ button.go:hover { text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 70%, tr
 .head-body { font-size: 15px; line-height: 1.45; }
 .head h4 { margin: 14px 0 6px; font-weight: 400; font-style: italic; font-size: 15px; color: var(--dim); }
 .head p { margin: 0 0 6px; }
-.head .row { display: grid; grid-template-columns: 7.5em 1fr 4.5em; gap: 10px; align-items: center; font-size: 14px; padding: 2px 0; }
+.head .row { display: grid; grid-template-columns: 6.5em 1fr 6.5em; gap: 10px; align-items: center; font-size: 14px; padding: 2px 0; }
 .head .row .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
 .head .row .bar i { display: block; height: 100%; width: calc(100% * var(--p)); background: linear-gradient(90deg, var(--rose), var(--accent) 45%, var(--fg)); }
 .head .row .num { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--dim); text-align: right; }
