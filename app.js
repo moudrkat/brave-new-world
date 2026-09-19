@@ -555,7 +555,18 @@ async function act(action) {
   if (a.verb === "again") { con.wish = cur?.zero ? SURPRISES[0] : cur.wish; return con.submit(); }
   if (a.verb === "elsewhere") { con.wish = SURPRISES[Math.floor(Math.random() * SURPRISES.length)]; return con.submit(); }
   if (!cur?.spec) return con.setStatus("this world has no such lever");
-  change(applyAction(cur.spec, a), action, action + " · the model named this lever and composed what it does; the engine pulled it");
+  let next = applyAction(cur.spec, a), note = action, why = " · the model named this lever and composed what it does; the engine pulled it";
+  if (JSON.stringify(next) === JSON.stringify(cur.spec)) {
+    // the lever asked for what is already so: the engine turns the same dial one notch further
+    if (a.verb === "set" && a.field === "weather") { const s = turnWeather(cur.spec); next = s.spec; note = s.note; }
+    else if (a.verb === "set" && a.field === "time") { const t = ["dawn", "noon", "dusk", "night"]; next = applyAction(cur.spec, "set time " + t[(t.indexOf(cur.spec.time) + 1) % 4]); note = "the hour moved on to " + next.time; }
+    else if (a.verb === "set" && a.field === "font") { const s = turnFont(cur.spec); next = s.spec; note = s.note; }
+    else if (a.verb === "set" && a.field === "motion") { next = applyAction(cur.spec, "set motion " + (cur.spec.motion === "still" ? "restless" : "still")); note = "the world " + (next.motion === "still" ? "held its breath" : "stirred"); }
+    else if (a.kind) { const i = cur.spec.elements.findIndex((e) => e.kind === a.kind); const s = i >= 0 ? surprise(cur.spec, i) : sprout(cur.spec, 0.5); next = s.spec; note = s.note; }
+    else { const s = turnWeather(cur.spec); next = s.spec; note = s.note; }
+    why = " · that was already so, so the engine went one step further";
+  }
+  change(next, note, note + why);
 }
 // an engine-side change to the world on screen: instant, remembered, no model
 function change(spec, note, status) {

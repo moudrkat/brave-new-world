@@ -280,8 +280,8 @@ export function normalizeSpec(o) {
       prompt: String(o.console?.prompt || "describe the world you want to live in…").slice(0, 70),
       button: String(o.console?.button || "dream").slice(0, 20),
       buttons: (Array.isArray(o.console?.buttons) ? o.console.buttons : []).slice(0, 3)
-        .map((b) => ({ label: String(b?.label || "").slice(0, 22), action: parseAction(b?.action) ? actionText(parseAction(b?.action)) : "again" }))
-        .filter((b) => b.label.trim()),
+        .map((b) => ({ label: String(b?.label || "").slice(0, 22), action: parseAction(b?.action) ? actionText(parseAction(b?.action)) : null }))
+        .filter((b) => b.label.trim() && b.action),
     },
     next: (Array.isArray(o.next) ? o.next : []).map((l) => String(l).trim().slice(0, 48)).filter(Boolean).slice(0, 1),
   };
