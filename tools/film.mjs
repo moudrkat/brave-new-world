@@ -124,7 +124,7 @@ async function film() {
   const walkIntoGhost = async () => {
     const kind = await ev(`document.querySelector(".el.ghost")?.dataset.kind || ""`);
     if (!kind) return false;
-    beat("ghost", { kind });
+    beat("ghost", { ghostKind: kind });
     const before = await count();
     await ev(`(() => { const g = document.querySelector(".el.ghost"); const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
     beat("dream", { wish: "ghost: " + kind });
@@ -137,7 +137,7 @@ async function film() {
   const walkToThing = async () => {
     const kind = await ev(`(() => { const els = [...document.querySelectorAll(".el:not(.ghost)")].filter(e => { const r = e.getBoundingClientRect(); return r.width > 30 && r.top > 40 && r.bottom < innerHeight * 0.7; }); return els.length ? els[Math.floor(els.length / 2)].dataset.kind : ""; })()`);
     if (!kind) return false;
-    beat("walk", { kind });
+    beat("walk", { thing: kind });
     const before = await count();
     await ev(`(() => { const g = [...document.querySelectorAll(".el:not(.ghost)")].find(e => e.dataset.kind === ${JSON.stringify(kind)}); const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
     beat("dream", { wish: "walk to the " + kind });

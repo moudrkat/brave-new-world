@@ -36,6 +36,8 @@ any browser, on a phone.
 
 ![a world, dreamed](docs/world.jpg)
 
+![a door the model proposed, already dreamt while you looked, opening](docs/door.gif)
+
 ## How, given that the model is very small
 
 It isn't asked to write HTML. A model this size writes HTML the way a child

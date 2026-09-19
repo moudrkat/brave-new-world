@@ -500,6 +500,7 @@ export class BnwConsole extends HTMLElement {
   // a token already weighed: live from addToken, or replayed from a recorded dream.
   // rawBefore is the text written so far, so the token can be filed by what it was deciding
   paintToken(token, p, alts, rawBefore = "") {
+    if (/^<\|.*\|>$/.test(token)) return; // the end-of-text token is the model's business, not the page's
     const where = whereInSpec(rawBefore + token);
     if (where.thought !== this.thought) this.thought = where.thought;
     const a = this.anatomy;

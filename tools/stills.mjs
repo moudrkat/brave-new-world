@@ -17,7 +17,7 @@ console.log("docs/world.jpg from", still.name.split("/").pop(), "·", worlds[1]?
 
 // the gif: the last few seconds of the world before a door, the door taken, the crossfade, the new world
 function gif(kind, name, before = 1.2, after = 6.5, fps = 12, width = 720) {
-  const b = take.beats.find((x) => x.kind === kind);
+  const b = take.beats.find((x) => x.kind === kind) || take.beats.find((x) => x.kind === "dream" && String(x.wish || "").startsWith(kind + ":"));
   if (!b) return console.log("no", kind, "beat");
   const sel = frames.filter((f) => f.t >= b.t - before && f.t <= b.t + after);
   let list = "ffconcat version 1.0\n";
