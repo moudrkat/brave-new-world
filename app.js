@@ -33,6 +33,10 @@ const state = {
   lastRaw: "",
 };
 window.__bnw = state;
+import { pictureOf, pictureDataURL } from "./picture.js";
+import { makeSound } from "./sound.js";
+const sound = makeSound();
+window.__bnw.picture = (i, width, height) => { const w = state.worlds[i ?? state.current]; return pictureDataURL(w.spec, { width, height, wish: w.wish }); };
 
 // a view transition that gets skipped by the next one reports itself as an error; it is not one
 addEventListener("unhandledrejection", (e) => { if (e.reason?.name === "AbortError" && /transition/i.test(e.reason?.message || "")) e.preventDefault(); });
@@ -166,6 +170,7 @@ function swapWorld(html, { partial = false, design = null } = {}) {
   else if (design) con.applyDesign(design); // a panel forming as the model writes it: it moves edge, tone and shape as they are decided
   window.scrollTo(0, 0);
   paintSigns();
+  if (!partial) sound.setWorld(isZero ? null : state.worlds[state.current]?.spec || null);
 }
 
 // The model may set --bnw-* on :root. When it did not, the console takes the
@@ -248,7 +253,7 @@ async function generate(engine, messages, wish, strategy, grammar = null, quiet 
     if (choice?.delta?.content) raw += choice.delta.content;
     if (choice?.finish_reason) finish = choice.finish_reason;
     const lps = choice?.logprobs?.content;
-    if (lps) for (const lp of lps) { const d = quiet ? detemper(lp, engine.rawLogprobs ? 1 : request.temperature) : con.addToken(lp, raw.slice(0, raw.length - lp.token.length)); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; }
+    if (lps) for (const lp of lps) { const d = quiet ? detemper(lp, engine.rawLogprobs ? 1 : request.temperature) : con.addToken(lp, raw.slice(0, raw.length - lp.token.length)); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; if (!quiet) sound.tick(d.p); }
     const now = performance.now();
     if (!quiet && now - lastPaint > 450) {
       lastPaint = now;
@@ -414,6 +419,7 @@ async function dream(wish, fork = null) {
   state.worlds.push({ wish: fork ? `${wish} · a ${fork.ghost.kind} instead` : wish, html, issues: report?.issues || [], retries, attempts, strategy, spec: report?.spec || null, ghosts, certainty: report?.certainty || null,
     raw, tokens: out?.tokens || [], messages: retries ? messages : asked, seconds: out?.seconds || 0, model: state.modelId, date: new Date().toISOString() });
   state.current = state.worlds.length - 1;
+  sound.setWorld(report?.spec || null);
   con.renderHistory(state.worlds, state.current, pick);
   if (out?.seconds) dreamSecs = dreamSecs * 0.5 + out.seconds * 0.5;
   state.dreaming = false;
@@ -485,6 +491,7 @@ async function replay(d, { label, status }) {
     if (token !== replaying) { state.dreaming = false; if (replayCtl === ctl) replayCtl = null; return; }
     const t = toks[k];
     con.paintToken(t.token, t.p, t.alts || [{ token: t.token, p: t.p }], prefix);
+    sound.tick(t.p);
     prefix += t.token;
     if (k % 8 === 0) con.updateStats(t0, k + 1, "replayed", d.seconds || null);
     if (!ctl.skip && performance.now() - lastForm > 450) { lastForm = performance.now(); formFrom(prefix); }
@@ -551,6 +558,23 @@ async function remember(w) {
   const h = await encodeWorld(w);
   if (seq === rememberSeq && h) history.replaceState(null, "", location.pathname + location.search + "#w=" + h);
 }
+// the world as one picture: on a phone the share sheet, elsewhere a file
+async function keepPicture() {
+  const w = state.worlds[state.current];
+  if (!w || w.zero || !w.spec) return con.setStatus("nothing to keep yet: wish first");
+  con.setStatus("painting the picture", false, true);
+  try {
+    const blob = await pictureOf(w.spec, { wish: w.wish });
+    const name = ((w.spec.title || "world").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "world") + ".jpg";
+    const file = new File([blob], name, { type: "image/jpeg" });
+    if (navigator.canShare?.({ files: [file] }) && matchMedia("(pointer: coarse)").matches) { await navigator.share({ files: [file], title: "Brave New World · " + w.wish, url: location.href }); return con.setStatus("shared · the link in the address bar is the world itself"); }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+    con.setStatus("the picture is yours: " + name + " · the link in the address bar is the world itself");
+  } catch (e) { if (e?.name !== "AbortError") con.setStatus("the picture would not paint: " + (e?.message || e), true); }
+}
+con.addEventListener("picture", keepPicture);
+con.addEventListener("sound", () => { sound.enable(!sound.on); con.setSound(sound.on); con.setStatus(sound.on ? "a sound for this world, made in this tab from its sky, its hour and its weather · nothing downloaded" : "quiet", false, true); });
+if (sound.wanted()) addEventListener("pointerdown", () => { sound.enable(true); con.setSound(true); }, { once: true });
 con.addEventListener("share", async () => {
   const w = state.worlds[state.current];
   if (!w || w.zero) return con.setStatus("nothing to send yet: wish first");
@@ -601,6 +625,7 @@ function change(spec, note, status) {
   state.current = state.worlds.length - 1;
   designOf = designFor(spec, cur.certainty);
   applyWorld(html, { quick: true });
+  sound.ping(Math.random());
   con.renderHistory(state.worlds, state.current, pick);
   con.setStatus(status || note);
   remember(state.worlds[state.current]);

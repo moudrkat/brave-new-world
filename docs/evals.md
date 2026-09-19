@@ -85,3 +85,12 @@ same dial one notch further and says why, so no press is a dud. 29 of the
 75 levers on the shipped run ask the model instead of the engine ("again",
 "elsewhere"): those always lead somewhere, and cost a dream.
 
+## What the total column was
+
+The raw tables in `evals/` carry a `total` column. In spec mode it scores
+the page the engine painted from the spec (rule count, colors, decoration,
+what was actually painted), which is the painter's work, not the model's: a
+readable spec always paints a rich page, so the number sits near 0.9 for
+every model and says almost nothing. It stays in the raw tables for the
+HTML baseline, where it was the point, and is left out of the README. The
+model is measured by the other columns.

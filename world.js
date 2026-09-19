@@ -501,6 +501,8 @@ function certainWords(text, probs) {
   }).join("");
 }
 
+// what picture.js paints with: the same places, sizes and shapes as the page
+export const PAINT = { X, Y_BY_SIDE, SIZE, SHAPES, GLOW, AT_LEAST, FONT, MIRRORS, mix, lum, rgba };
 export function renderWorld(spec, { ghosts = [], certainty = null } = {}) {
   let s = spec;
   Y = Y_BY_SIDE[s.console.side] || Y_BY_SIDE.bottom;

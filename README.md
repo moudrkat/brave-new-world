@@ -69,17 +69,24 @@ version, and where it runs, is in [docs/how.md](docs/how.md).
 Measured, not assumed. `eval.html` runs the shipped prompt, grammar and
 sampling over held-out wishes and scores what came back; the sets are the
 32 wishes, 16 vague ones ("hi", "blue", "monday", one in Czech, one emoji)
-and 12 edits to a fixed world. Full tables in `evals/`, the findings and what
-was changed because of them in [docs/evals.md](docs/evals.md).
+and 12 edits to a fixed world. Every column is a check, not an opinion:
+broken and dead count what the harness could not read, sense checks the cue
+words of the wish against the fields, original measures how little of the
+prompt's example leaked in, prose is the share of titles, lines and labels
+that are language, levers is the share of levers whose label says what they
+do, doors is whether the door leads away from where you stand. What no
+column measures is beauty, and the demos are chosen by eye. Full tables in
+`evals/`, the findings and what was changed because of them in
+[docs/evals.md](docs/evals.md).
 
-| mind | set | example | tok/s | broken | dead | sense | original | prose | levers | doors | edit | kept | total |
-|---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Qwen2.5 Coder · 0.5B, shipped (one door) | wishes | full | 14 | 6% | 3% | 0.46 | 0.36 | 0.99 | 0.66 | 1.00 | · | · | 0.92 |
-| Qwen2.5 Coder · 0.5B | ambiguous | full | 13 | 25% | 19% | 0.00 | 0.33 | 0.98 | 0.75 | 0.92 | · | · | 0.86 |
-| Qwen2.5 Coder · 0.5B | followups | full | 15 | 0% | 0% | 0.78 | 0.92 | 1.00 | 0.83 | 0.99 | 0.33 | 0.86 | 0.88 |
-| the same, three doors, retry shown its broken attempt | wishes | full | 12 | 12% | 12% | 0.42 | 0.50 | 0.97 | 0.64 | 1.00 | · | · | 0.89 |
-| Qwen2.5 Coder · 0.5B | wishes | prose | 14 | 12% | 9% | 0.45 | 0.41 | 0.98 | 0.19 | 0.99 | · | · | 0.87 |
-| Qwen2.5 Coder · 0.5B | wishes | bare | 15 | 69% | 62% | 0.41 | 0.38 | 0.86 | 0.10 | 0.98 | · | · | 0.88 |
+| mind | set | example | tok/s | broken | dead | sense | original | prose | levers | doors | edit | kept |
+|---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| Qwen2.5 Coder · 0.5B, shipped (one door) | wishes | full | 14 | 6% | 3% | 0.46 | 0.36 | 0.99 | 0.66 | 1.00 | · | · |
+| Qwen2.5 Coder · 0.5B | ambiguous | full | 13 | 25% | 19% | 0.00 | 0.33 | 0.98 | 0.75 | 0.92 | · | · |
+| Qwen2.5 Coder · 0.5B | followups | full | 15 | 0% | 0% | 0.78 | 0.92 | 1.00 | 0.83 | 0.99 | 0.33 | 0.86 |
+| the same, three doors, retry shown its broken attempt | wishes | full | 12 | 12% | 12% | 0.42 | 0.50 | 0.97 | 0.64 | 1.00 | · | · |
+| Qwen2.5 Coder · 0.5B | wishes | prose | 14 | 12% | 9% | 0.45 | 0.41 | 0.98 | 0.19 | 0.99 | · | · |
+| Qwen2.5 Coder · 0.5B | wishes | bare | 15 | 69% | 62% | 0.41 | 0.38 | 0.86 | 0.10 | 0.98 | · | · |
 
 ## Two minds, one page
 

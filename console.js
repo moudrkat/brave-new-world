@@ -145,6 +145,8 @@ const CSS = `
 .top .stats { cursor: pointer; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top .stats:empty { display: none; }
 .top .right { display: flex; gap: 12px; align-items: baseline; min-width: 0; }
+.link.on { color: var(--accent); border-bottom-color: var(--accent); }
+.right .link + .link { margin-left: 8px; }
 .link { background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--dim); font: inherit; letter-spacing: inherit; text-transform: inherit; padding: 0 0 1px; cursor: pointer; white-space: nowrap; }
 .link:hover { color: var(--accent); border-color: var(--accent); }
 :host(:not([data-world])) .link { display: none; }
@@ -319,7 +321,7 @@ const HTML = `
 <div class="panel">
   <div class="top">
     <span class="brand">brave new world</span>
-    <span class="right"><span id="stats" class="stats" title="what it was thinking"></span><button id="share" class="link" type="button" title="the address bar holds this exact world, ghosts and doubts included: send it">send this world</button></span>
+    <span class="right"><span id="stats" class="stats" title="what it was thinking"></span><button id="picture" class="link" type="button" title="this world as one picture, to keep or to post">keep a picture</button> <button id="sound" class="link" type="button" title="a sound for this world, made in this tab from the spec, nothing downloaded">sound</button> <button id="share" class="link" type="button" title="the address bar holds this exact world, ghosts and doubts included: send it">send this world</button></span>
   </div>
   <div id="inside" class="inside closed">
     <canvas id="spark" class="spark" height="26"></canvas>
@@ -425,6 +427,8 @@ export class BnwConsole extends HTMLElement {
     this.$("wake").addEventListener("click", () => this.dispatchEvent(new CustomEvent("wake")));
     this.$("stats").addEventListener("click", () => this.toggleInside());
     this.$("share").addEventListener("click", () => this.dispatchEvent(new CustomEvent("share")));
+    this.$("picture").addEventListener("click", () => this.dispatchEvent(new CustomEvent("picture")));
+    this.$("sound").addEventListener("click", () => this.dispatchEvent(new CustomEvent("sound")));
     this.$("head-close").addEventListener("click", () => this.openHead(false));
     // a tap on the creature opens its head; a tap anywhere else closes it
     addEventListener("click", (e) => {
@@ -538,6 +542,7 @@ export class BnwConsole extends HTMLElement {
   }
 
   get statusText() { return this.$("status").textContent; }
+  setSound(on) { const b = this.$("sound"); b.textContent = on ? "sound · on" : "sound"; b.classList.toggle("on", !!on); }
   setVeilNote(text) { this.$("veil-note").textContent = text || ""; }
   setStatus(text, warn = false, quiet = false) {
     if (!quiet) this.statusAt = performance.now(); // so a delayed hint does not talk over a fresh line
