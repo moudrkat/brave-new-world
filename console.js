@@ -210,6 +210,23 @@ button.go:hover { text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 70%, tr
 .tip-bar { height: 3px; background: rgba(239,230,214,.14); border-radius: 2px; overflow: hidden; }
 .tip-bar i { display: block; height: 100%; width: calc(100% * var(--p)); background: currentColor; }
 
+/* ---- inside its head ---- */
+.head { position: fixed; z-index: 2147483001; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, 94vw); max-height: 78vh; overflow: auto; pointer-events: auto;
+  background: color-mix(in srgb, var(--bg) 92%, #07060b); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px 18px; color: var(--fg); box-shadow: 0 30px 80px -30px rgba(0,0,0,.8); }
+.head-top { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; color: var(--accent); text-transform: lowercase; margin-bottom: 10px; }
+.head-body { font-size: 15px; line-height: 1.45; }
+.head h4 { margin: 14px 0 6px; font-weight: 400; font-style: italic; font-size: 15px; color: var(--dim); }
+.head p { margin: 0 0 6px; }
+.head .row { display: grid; grid-template-columns: 7.5em 1fr 4.5em; gap: 10px; align-items: center; font-size: 14px; padding: 2px 0; }
+.head .row .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.head .row .bar i { display: block; height: 100%; width: calc(100% * var(--p)); background: linear-gradient(90deg, var(--rose), var(--accent) 45%, var(--fg)); }
+.head .row .num { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--dim); text-align: right; }
+.head .hes { font-family: var(--mono); font-size: 11px; line-height: 1.7; }
+.head .hes b { font-weight: 400; color: var(--rose); }
+.head .hes i { font-style: normal; color: var(--dim); }
+.head .arch { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--dim); line-height: 1.7; }
+.head .honest { font-style: italic; color: var(--dim); font-size: 13.5px; margin-top: 10px; }
+
 /* ---- a phone ---- */
 @media (max-width: 720px) {
   :host { --pad-x: 14px; }
@@ -268,7 +285,47 @@ const HTML = `
   <p id="status" class="status"></p>
 </div>
 <div id="tip" class="tip" hidden></div>
+<div id="head" class="head" hidden>
+  <div class="head-top"><span>inside its head</span><button id="head-close" class="link" type="button">close</button></div>
+  <div id="head-body" class="head-body"></div>
+</div>
 `;
+
+// Which part of the world the model is writing, read off the text so far:
+// the last key it opened, and whether it is inside the things, the console
+// or the doors. Returns { group, thought } for the anatomy and the creature.
+const ORD = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh"];
+export function whereInSpec(raw) {
+  const keys = [...raw.matchAll(/"([a-z_]+)":/g)].map((m) => m[1]);
+  const last = keys.at(-1);
+  if (!last) return { group: "title", thought: "beginning" };
+  const inEls = raw.lastIndexOf('"elements":') > -1 && raw.lastIndexOf('"lines":') < raw.lastIndexOf('"elements":');
+  const inCon = raw.lastIndexOf('"console":') > -1 && raw.lastIndexOf('"next":') < raw.lastIndexOf('"console":');
+  const inNext = raw.lastIndexOf('"next":') > -1 && raw.lastIndexOf('"next":') > raw.lastIndexOf('"console":');
+  if (inNext) return { group: "doors", thought: "opening the doors" };
+  if (inCon) {
+    if (last === "label") return { group: "console", thought: "wording a lever" };
+    if (last === "action") return { group: "console", thought: "deciding what the lever does" };
+    if (last === "prompt") return { group: "console", thought: "writing the invitation" };
+    if (last === "button") return { group: "console", thought: "naming the button" };
+    return { group: "console", thought: "designing the console" };
+  }
+  if (inEls) {
+    const n = (raw.slice(raw.lastIndexOf('"elements":')).match(/"kind":/g) || []).length;
+    const nth = ORD[Math.max(0, n - 1)] || `${n}th`;
+    if (last === "kind") return { group: "things", thought: `naming the ${nth} thing` };
+    if (last === "x" || last === "y") return { group: "things", thought: `placing the ${nth} thing` };
+    if (last === "color") return { group: "things", thought: `coloring the ${nth} thing` };
+    if (last === "size" || last === "count") return { group: "things", thought: `sizing the ${nth} thing` };
+    return { group: "things", thought: "choosing the things" };
+  }
+  const map = { title: ["title", "finding a title"], time: ["time", "choosing the hour"], weather: ["weather", "choosing the weather"], sky: ["colors", "mixing the sky"], ground: ["ground", "laying the ground"], ground_color: ["colors", "coloring the ground"], ink: ["colors", "choosing the ink"], accent: ["colors", "choosing the accent"], font: ["type", "choosing the letters"], text_place: ["type", "placing the words"], motion: ["motion", "deciding how restless"], lines: ["poem", "writing the poem"] };
+  const [group, thought] = map[last] || ["title", "thinking"];
+  return { group, thought };
+}
+const ARCH = "Qwen2.5-Coder-0.5B · 24 layers · 14 attention heads, 2 for keys and values · 896 dimensions wide · a vocabulary of 151,936 tokens · 4-bit weights, about 300 MB · sampled at temperature 0.9, top-p 0.9 · certainties de-tempered from the top five alternatives";
+
+const freshAnatomy = () => ({ n: 0, forced: 0, groups: {}, hesitations: [] });
 
 function tokColor(p) {
   if (p >= 0.7) return "var(--fg)";
@@ -288,6 +345,8 @@ export class BnwConsole extends HTMLElement {
     this.$ = (id) => root.getElementById(id);
     this.probs = [];
     this.doubt = 0;
+    this.thought = "";
+    this.anatomy = freshAnatomy();
     this.dreaming = false;
     this._worldActive = false;
     this.awake = false;
@@ -307,6 +366,15 @@ export class BnwConsole extends HTMLElement {
     this.$("wake").addEventListener("click", () => this.dispatchEvent(new CustomEvent("wake")));
     this.$("stats").addEventListener("click", () => this.toggleInside());
     this.$("share").addEventListener("click", () => this.dispatchEvent(new CustomEvent("share")));
+    this.$("head-close").addEventListener("click", () => this.openHead(false));
+    // a tap on the creature opens its head; a tap anywhere else closes it
+    addEventListener("click", (e) => {
+      if (e.composedPath().includes(this.$("head"))) return;
+      if (!this.$("head").hidden) return this.openHead(false);
+      if (e.composedPath().includes(root.querySelector(".panel"))) return;
+      const at = this.sky.shogAt?.();
+      if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) < at.r * 1.7) { e.stopPropagation(); this.openHead(true); }
+    }, true);
 
     const ribbon = this.$("ribbon");
     ribbon.addEventListener("mouseover", (e) => this.showTip(e));
@@ -411,8 +479,8 @@ export class BnwConsole extends HTMLElement {
     this.$("go").textContent = on ? "wake me" : this.baseButton;
     clearTimeout(this._fold);
     document.documentElement.classList.toggle("dreaming", on); // the page's own words step back while the veil is up
-    if (on) { this.probs = []; this.$("ribbon-inner").textContent = ""; this.$("veil-inner").textContent = ""; this.$("harness").textContent = ""; this.$("stats").textContent = ""; this.openInside(true); this.$("veil").classList.add("on"); }
-    else { this.$("veil").classList.remove("on"); this._fold = setTimeout(() => this.openInside(false), 6000); }
+    if (on) { this.probs = []; this.anatomy = freshAnatomy(); this.thought = "waking"; this.$("ribbon-inner").textContent = ""; this.$("veil-inner").textContent = ""; this.$("harness").textContent = ""; this.$("stats").textContent = ""; this.openInside(true); this.$("veil").classList.add("on"); }
+    else { this.$("veil").classList.remove("on"); this.thought = ""; this._fold = setTimeout(() => this.openInside(false), 6000); }
   }
   openInside(open) {
     this.$("inside").classList.toggle("closed", !open);
@@ -424,13 +492,26 @@ export class BnwConsole extends HTMLElement {
   }
   get harnessText() { return this.$("harness").textContent; }
 
-  addToken(lp) {
+  addToken(lp, rawBefore = "") {
     const { p, alts } = detemper(lp, this.temperature);
-    this.paintToken(lp.token, p, alts);
+    this.paintToken(lp.token, p, alts, rawBefore);
     return { p, alts };
   }
-  // a token already weighed: live from addToken, or replayed from a recorded dream
-  paintToken(token, p, alts) {
+  // a token already weighed: live from addToken, or replayed from a recorded dream.
+  // rawBefore is the text written so far, so the token can be filed by what it was deciding
+  paintToken(token, p, alts, rawBefore = "") {
+    const where = whereInSpec(rawBefore + token);
+    if (where.thought !== this.thought) this.thought = where.thought;
+    const a = this.anatomy;
+    a.n++;
+    // a token the grammar decided has no rival: the sampler saw one legal continuation
+    const forced = !alts || alts.length <= 1 || p > 0.995;
+    if (forced) a.forced++;
+    else {
+      const g = (a.groups[where.group] ||= { n: 0, sum: 0, hes: 0 });
+      g.n++; g.sum += p; if (p < 0.35) g.hes++;
+      if (p < 0.5) { a.hesitations.push({ token, p, alts: (alts || []).filter((x) => x.token !== token).slice(0, 2), thought: where.thought }); a.hesitations.sort((x, y) => x.p - y.p); a.hesitations.length = Math.min(a.hesitations.length, 6); }
+    }
     const span = document.createElement("span");
     span.className = "tok";
     span.textContent = token;
@@ -490,6 +571,34 @@ export class BnwConsole extends HTMLElement {
       ol.appendChild(li);
     });
     ol.scrollLeft = ol.scrollWidth;
+  }
+
+  /* ---- inside its head ---- */
+
+  openHead(open = true) {
+    const h = this.$("head");
+    h.hidden = !open;
+    if (open) this.renderHead();
+  }
+  renderHead() {
+    const a = this.anatomy;
+    const choices = a.n - a.forced;
+    const groups = Object.entries(a.groups).sort((x, y) => x[1].sum / x[1].n - y[1].sum / y[1].n);
+    const meanChoice = choices ? Object.values(a.groups).reduce((s, g) => s + g.sum, 0) / choices : 0;
+    const world = this.worldActive;
+    let html = "";
+    if (!a.n) html += `<p>Nothing yet. It has not dreamt in this tab; wake it, or step into a remembered dream, and this fills with what it was thinking.</p>`;
+    else {
+      html += `<p>${a.n} tokens. <b>${a.forced}</b> of them the grammar decided: syntax, braces, the names of fields, the only legal continuation. <b>${choices}</b> were its own choices, and on those it was <b>${Math.round(meanChoice * 100)}%</b> sure on average.</p>`;
+      html += `<h4>where it doubted</h4>`;
+      for (const [g, v] of groups) html += `<div class="row"><span>${esc(g)}</span><span class="bar"><i style="--p:${(v.sum / v.n).toFixed(2)}"></i></span><span class="num">${Math.round((v.sum / v.n) * 100)}% · ${v.hes} hes.</span></div>`;
+      if (a.hesitations.length) {
+        html += `<h4>what it nearly said</h4><div class="hes">` + a.hesitations.map((h) => `<div>${esc(h.thought)}: said <b>${esc(visible(h.token))}</b> at ${Math.round(h.p * 100)}%${h.alts.length ? `, nearly <i>${h.alts.map((x) => esc(visible(x.token)) + " " + Math.round(x.p * 100) + "%").join(", ")}</i>` : ""}</div>`).join("") + `</div>`;
+      }
+    }
+    html += `<h4>the mind</h4><p class="arch">${esc(ARCH)}</p>`;
+    html += `<p class="honest">What it says about itself is all here: the probability of every token it wrote and of the words it did not. Its attention and activations stay inside the GPU; this runtime does not hand them out, and I would rather show you less than invent the rest.</p>`;
+    this.$("head-body").innerHTML = html;
   }
 
   /* ---- tooltip ---- */
@@ -617,6 +726,10 @@ function makeSky(c, host) {
     }
     // a mouth that opens when it has just spoken
     if (shog.mouth > 0.05) { g.strokeStyle = shog.ink; g.lineWidth = 1.5; g.beginPath(); g.arc(cx, cy + R * 0.25, R * 0.3, 0.15 * Math.PI, 0.85 * Math.PI); g.globalAlpha = shog.mouth; g.stroke(); }
+    // what it is thinking about, in words, under it
+    const label = host.dreaming ? host.thought : host.worldActive || host.anatomy.n ? "tap me" : "";
+    if (label) { g.globalAlpha = host.dreaming ? 0.9 : 0.45; g.fillStyle = shog.ink; g.font = "300 11px 'JetBrains Mono', ui-monospace, monospace"; g.textAlign = "center"; g.letterSpacing = "0.12em"; g.fillText(label, cx, cy + R * 1.55 + 12); }
+    shog.px = cx; shog.py = cy; shog.pr = R;
     g.restore();
   }
   // Machines without a GPU paint this canvas in software. Measure the first
@@ -663,7 +776,7 @@ function makeSky(c, host) {
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-  return { spark, feed };
+  return { spark, feed, shogAt: () => ({ x: shog.px || 0, y: shog.py || 0, r: shog.pr || 30 }) };
 }
 
 customElements.define("bnw-console", BnwConsole);

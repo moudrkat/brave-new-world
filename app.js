@@ -207,7 +207,7 @@ async function generate(engine, messages, wish, strategy, grammar = null, quiet 
     if (choice?.delta?.content) raw += choice.delta.content;
     if (choice?.finish_reason) finish = choice.finish_reason;
     const lps = choice?.logprobs?.content;
-    if (lps) for (const lp of lps) { const d = quiet ? detemper(lp, request.temperature) : con.addToken(lp); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; }
+    if (lps) for (const lp of lps) { const d = quiet ? detemper(lp, request.temperature) : con.addToken(lp, raw.slice(0, raw.length - lp.token.length)); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; }
     const now = performance.now();
     if (!quiet && now - lastPaint > 800) {
       lastPaint = now;
@@ -336,7 +336,7 @@ function takeAhead(a) {
   const { out, report, messages } = a.result;
   const t0 = performance.now();
   con.setDreaming(true);
-  for (const t of out.tokens) con.paintToken(t.token, t.p, t.alts);
+  for (const t of out.tokens) con.paintToken(t.token, t.p, t.alts, out.raw.slice(0, t.start));
   con.updateStats(t0 - out.seconds * 1000, out.tokens.length, "dreamt ahead");
   con.setHarness((report.fatal ? "harness: unusable" : report.issues.length ? "harness: repaired " + report.issues.map((i) => i.kind).join(", ") : "harness: clean") + (report.ghosts?.length ? ` · ${report.ghosts.length} ghost${report.ghosts.length > 1 ? "s" : ""} · tap one to walk into it` : ""), report.fatal);
   designOf = designFor(report.spec, report.certainty);
@@ -377,10 +377,12 @@ async function replay(d, { label, status }) {
   // the tokens it wrote that day, at their real certainties, faster than it wrote them
   const t0 = performance.now();
   const toks = d.tokens || [];
+  let prefix = "";
   for (let k = 0; k < toks.length; k++) {
     if (token !== replaying) return;
     const t = toks[k];
-    con.paintToken(t.token, t.p, t.alts || [{ token: t.token, p: t.p }]);
+    con.paintToken(t.token, t.p, t.alts || [{ token: t.token, p: t.p }], prefix);
+    prefix += t.token;
     if (k % 8 === 0) con.updateStats(t0, k + 1, "replayed");
     if (k % 3 === 0) await new Promise((r) => setTimeout(r, 12));
   }
