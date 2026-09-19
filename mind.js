@@ -78,6 +78,33 @@ export function requestFor(modelId, messages, extra = {}, strategy = "spec") {
   return req;
 }
 
+// A spec still being written: close whatever is open and read what is there,
+// so the world can form while the model writes it. Returns an object or null.
+export function completeJson(raw) {
+  const a = raw.indexOf("{");
+  if (a < 0) return null;
+  let t = raw.slice(a);
+  const tryParse = (text) => {
+    let inStr = false, esc = false; const stack = [];
+    for (const ch of text) {
+      if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true; else if (ch === "{" || ch === "[") stack.push(ch === "{" ? "}" : "]"); else if (ch === "}" || ch === "]") stack.pop();
+    }
+    let fixed = text + (inStr ? '"' : "");
+    fixed = fixed.replace(/,\s*$/, "").replace(/:\s*$/, ":null").replace(/,\s*"[^"]*"?$/, "");
+    try { return JSON.parse(fixed + stack.reverse().join("")); } catch { return undefined; }
+  };
+  // a dangling key or a half value: back off to the last comma or bracket, a few times
+  for (let k = 0; k < 6; k++) {
+    const o = tryParse(t);
+    if (o && typeof o === "object") return o;
+    const cut = Math.max(t.lastIndexOf(","), t.lastIndexOf("["), t.lastIndexOf("{"));
+    if (cut <= 0) return null;
+    t = t.slice(0, cut + (t[cut] === "," ? 0 : 1));
+  }
+  return null;
+}
+
 // Tolerant of fences and chatter; the grammar should make this trivial, but a
 // truncated answer still has to be caught.
 export function parseSpec(raw) {

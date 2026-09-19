@@ -104,6 +104,8 @@ const CSS = `
 /* ---- the veil: while it dreams, the tokens are the show, across the whole page ---- */
 .veil { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8vh 6vw; opacity: 0; transition: opacity 1.2s ease; background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 78%, transparent), transparent 72%); }
 .veil.on { opacity: 1; }
+.veil.forming { background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 40%, transparent), transparent 72%); }
+.veil.forming .veil-inner { opacity: 0.8; max-height: 30vh; font-size: clamp(13px, 1.7vw, 20px); }
 :host([data-side="top"]) .veil { justify-content: flex-end; padding-bottom: 12vh; }
 :host([data-side="bottom"]) .veil, :host(:not([data-side])) .veil { justify-content: flex-start; padding-top: 12vh; }
 .veil-inner { max-width: 62ch; font-family: var(--mono); font-size: clamp(15px, 2.1vw, 26px); line-height: 1.55; white-space: pre-wrap; word-break: break-word; text-align: left; mask-image: linear-gradient(to bottom, transparent 0, #000 18%, #000 100%); -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18%, #000 100%); max-height: 46vh; overflow: hidden; display: flex; flex-wrap: wrap; align-content: flex-end; }
@@ -554,9 +556,11 @@ export class BnwConsole extends HTMLElement {
     this.$("go").textContent = on ? "wake me" : this.baseButton;
     clearTimeout(this._fold);
     document.documentElement.classList.toggle("dreaming", on); // the page's own words step back while the veil is up
-    if (on) { this.probs = []; this.anatomy = freshAnatomy(); this.thought = "waking"; this.$("ribbon-inner").textContent = ""; this.$("veil-inner").textContent = ""; this.$("harness").textContent = ""; this.$("stats").textContent = ""; this.openInside(true); this.$("veil").classList.add("on"); }
+    if (on) { this.$("veil").classList.remove("forming"); this.probs = []; this.anatomy = freshAnatomy(); this.thought = "waking"; this.$("ribbon-inner").textContent = ""; this.$("veil-inner").textContent = ""; this.$("harness").textContent = ""; this.$("stats").textContent = ""; this.openInside(true); this.$("veil").classList.add("on"); }
     else { this.$("veil").classList.remove("on"); this.thought = ""; this._fold = setTimeout(() => this.openInside(false), 6000); }
   }
+  // while a world forms behind the veil, the veil thins so it can be seen arriving
+  forming(on) { this.$("veil").classList.toggle("forming", on); }
   openInside(open) {
     this.$("inside").classList.toggle("closed", !open);
   }

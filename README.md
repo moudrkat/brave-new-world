@@ -15,9 +15,10 @@ panel sits, what the button says, which levers it hands you, and which doors
 lead out of this world into the next one. Then it walks you through.
 
 It is not a chat. Nothing answers you. A world happens to you, and it has
-buttons. Tap a thing and you walk to it. Tap a ghost, the faint thing the
-model almost put there, and you walk into the road it did not take. The door
-it thinks you will choose is already being dreamt while you look.
+buttons, hung on the things they change. Tap a thing and something happens to
+it; tap it again and you walk there. Tap a ghost, the faint thing the model
+almost put there, and you walk into the road it did not take. The door out is
+a signpost, and the world behind it is being dreamt while you look.
 
 Is it a shoggoth? Is a shoggoth building you a brave new world? Are you
 walking through the shoggoth itself? Or was the brave new world inside you all
@@ -123,15 +124,12 @@ Why open it:
   remain the page's; only the mind moves. If a bigger mind makes better
   levers, it shows up in the levers, not in a prompt trick.
 
-What it needs: a schema-aware server (vLLM, llama.cpp) gets the world's
-schema as a decoding constraint; brainscope, which has no constrained
-decoding yet, gets the schema in the prompt (`&guided=0`) and the harness
-keeps the rest. brainscope needs its `--cors` flag and streaming with
-logprobs, which it grew for this and which is unreleased at the time of
-writing: `brainscope --model <id> --cors --host 127.0.0.1`, then open
-`?mind=http://127.0.0.1:8010/v1&guided=0`. `?mindmodel=` picks a model when
-the server serves several. Nothing on the page changes; the wake button says
-where the wishes go.
+A schema-aware server (vLLM, llama.cpp) gets the world's schema as a
+decoding constraint; brainscope gets it in the prompt (`&guided=0`) and the
+harness keeps the rest. brainscope needs `--cors` and streaming with
+logprobs, which it grew for this: `brainscope --model <id> --cors`, then
+`?mind=http://host:8010/v1&guided=0`. Nothing on the page changes; the wake
+button says where the wishes go.
 
 ## The rest
 

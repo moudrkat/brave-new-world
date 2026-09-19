@@ -1,4 +1,4 @@
-import { MODELS, WORLD_SCHEMA, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec, detemper, surprise, sprout, turnWeather, turnFont } from "./mind.js";
+import { MODELS, WORLD_SCHEMA, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec, detemper, surprise, sprout, turnWeather, turnFont, completeJson } from "./mind.js";
 import { DEMOS } from "./demos.js";
 import "./console.js";
 
@@ -249,10 +249,12 @@ async function generate(engine, messages, wish, strategy, grammar = null, quiet 
     const lps = choice?.logprobs?.content;
     if (lps) for (const lp of lps) { const d = quiet ? detemper(lp, engine.rawLogprobs ? 1 : request.temperature) : con.addToken(lp, raw.slice(0, raw.length - lp.token.length)); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; }
     const now = performance.now();
-    if (!quiet && now - lastPaint > 800) {
+    if (!quiet && now - lastPaint > 450) {
       lastPaint = now;
       con.updateStats(t0, n);
       if (strategy === "html" && /<body/i.test(raw)) applyWorld(extractHtml(raw, wish), { partial: true });
+      // the world forms as it is written: whatever the spec says so far, painted
+      if (strategy === "spec") { const so = completeJson(raw); if (so && (so.sky || so.title)) { const sp = normalizeSpec(so); sp.next = Array.isArray(so.next) ? so.next.slice(0, 1) : []; applyWorld(renderWorld(sp), { partial: true, quick: true }); con.forming(true); } }
     }
   }
   if (!quiet) con.updateStats(t0, n);
@@ -387,6 +389,7 @@ async function dream(wish, fork = null) {
   }
   state.lastRaw = raw;
   designOf = designFor(report?.spec, report?.certainty);
+  con.forming(false);
   applyWorld(html);
   // the world is as restless as the model was unsure
   if (report?.spec) document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[report.spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
