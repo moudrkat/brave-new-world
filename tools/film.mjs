@@ -99,9 +99,11 @@ async function film() {
     await sleep(300);
     if ((await ev(`${INPUT}.value`)) !== "") await ev(`${CON}.submit()`);
   };
-  const waitDream = async () => {
-    const before = await ev("window.__bnw.worlds.length");
-    for (let i = 0; i < 1000; i++) { await sleep(300); if ((await ev("window.__bnw.worlds.length")) > before && !(await ev("window.__bnw.dreaming"))) return; }
+  // counted before the action that starts the dream: a door dreamt ahead
+  // lands its world synchronously, and counting afterwards would wait forever
+  const count = () => ev("window.__bnw.worlds.length");
+  const waitDream = async (before) => {
+    for (let i = 0; i < 1000; i++) { await sleep(300); if ((await count()) > before && !(await ev("window.__bnw.dreaming"))) return; }
     throw new Error("the dream never ended");
   };
 
@@ -120,9 +122,10 @@ async function film() {
     const kind = await ev(`document.querySelector(".el.ghost")?.dataset.kind || ""`);
     if (!kind) return false;
     beat("ghost", { kind });
+    const before = await count();
     await ev(`(() => { const g = document.querySelector(".el.ghost"); const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
     beat("dream", { wish: "ghost: " + kind });
-    await waitDream();
+    await waitDream(before);
     await describe();
     await sleep(HOLD_WORLD);
     return true;
@@ -132,9 +135,10 @@ async function film() {
     const kind = await ev(`(() => { const els = [...document.querySelectorAll(".el:not(.ghost)")].filter(e => { const r = e.getBoundingClientRect(); return r.width > 30 && r.top > 40 && r.bottom < innerHeight * 0.7; }); return els.length ? els[Math.floor(els.length / 2)].dataset.kind : ""; })()`);
     if (!kind) return false;
     beat("walk", { kind });
+    const before = await count();
     await ev(`(() => { const g = [...document.querySelectorAll(".el:not(.ghost)")].find(e => e.dataset.kind === ${JSON.stringify(kind)}); const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
     beat("dream", { wish: "walk to the " + kind });
-    await waitDream();
+    await waitDream(before);
     await describe();
     await sleep(HOLD_WORLD);
     return true;
@@ -148,9 +152,10 @@ async function film() {
     const door = await ev(`(${CON}.shadowRoot.querySelector(".door.ready") || ${CON}.shadowRoot.querySelector(".door")).textContent`);
     beat("door", { door, ready });
     await sleep(900);
+    const before = await count();
     await ev(`(${CON}.shadowRoot.querySelector(".door.ready") || ${CON}.shadowRoot.querySelector(".door")).click()`);
     beat("dream", { wish: "door: " + door });
-    await waitDream();
+    await waitDream(before);
     await describe();
     await sleep(HOLD_WORLD);
     return true;
@@ -158,15 +163,16 @@ async function film() {
 
   for (let k = 0; k < WISHES.length; k++) {
     beat("type", { wish: WISHES[k] });
+    const before = await count();
     await type(WISHES[k]);
     beat("dream", { wish: WISHES[k] });
-    await waitDream();
+    await waitDream(before);
     await describe();
     await sleep(HOLD_WORLD);
     if (k === 0) { await pressLever(); await walkToThing(); }
     if (k === 1) { if (!(await walkIntoGhost())) await pressLever(); }
   }
-  if (!(await takeDoor())) { beat("type", { wish: "a desert at noon, three black pyramids" }); await type("a desert at noon, three black pyramids"); beat("dream", {}); await waitDream(); await describe(); await sleep(HOLD_WORLD); }
+  if (!(await takeDoor())) { beat("type", { wish: "a desert at noon, three black pyramids" }); const before = await count(); await type("a desert at noon, three black pyramids"); beat("dream", {}); await waitDream(before); await describe(); await sleep(HOLD_WORLD); }
   await sleep(HOLD_END);
   beat("end");
   await s.send("Page.stopScreencast");
