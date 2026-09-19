@@ -483,6 +483,10 @@ export function renderWorld(spec, { ghosts = [], certainty = null } = {}) {
 :root { --bnw-bg: ${conBg}; --bnw-fg: ${conFg}; --bnw-accent: ${conAccent}; --bnw-font: ${FONT[s.font]}; --bnw-side: ${s.console.side}; --bnw-words: ${s.text_place}; --speed: ${speed}; }
 body[data-side="left"] .words, body[data-side="right"] .words { max-width: 36ch; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
+/* the scene is what you walk into: while the next world is dreamt, the camera leans toward the thing you tapped */
+.scene { position: absolute; inset: 0; transform-origin: var(--wx, 50%) var(--wy, 50%); transition: transform 16s cubic-bezier(.15, .55, .2, 1); }
+.scene.walking { transform: scale(1.6); }
+.scene.walking .el { transition: filter 1.2s; }
 body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-family: ${FONT[s.font]}; position: relative; }
 .ground { position: absolute; left: 0; right: 0; top: ${horizon}%; bottom: 0; ${groundCss(s)} }
 .haze { position: absolute; left: 0; right: 0; top: ${horizon - 14}%; height: 28%; background: linear-gradient(180deg, transparent, ${rgba(s.sky[s.sky.length - 1], 0.7)} 50%, transparent); pointer-events: none; }
@@ -527,10 +531,10 @@ p { margin: 0 0 8px; font-size: clamp(15px, 2.3vmin, 24px); line-height: 1.5; fo
 html.low-power * { animation: none !important; filter: none !important; backdrop-filter: none !important; text-shadow: none !important; }
 `;
   const body = `
-<div class="ground"></div><div class="haze"></div>
+<div class="scene"><div class="ground"></div><div class="haze"></div>
 ${weather(s.weather, s)}
 ${elements}
-<div class="words ${s.text_place}"><h1>${certainWords(s.title, certainty?.title)}</h1>${s.lines.map((l, i) => `<p>${certainWords(l, certainty?.lines?.[i])}</p>`).join("")}</div>`;
+<div class="words ${s.text_place}"><h1>${certainWords(s.title, certainty?.title)}</h1>${s.lines.map((l, i) => `<p>${certainWords(l, certainty?.lines?.[i])}</p>`).join("")}</div></div>`;
   return `<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><title>${esc(s.title)}</title><style>${css}</style></head><body>${body}</body></html>`;
 }
 

@@ -253,6 +253,7 @@ async function dream(wish, fork = null) {
   } catch (err) {
     console.error(err);
     con.setStatus("the dream broke: " + (err?.message || err), true);
+    document.querySelector(".scene")?.classList.remove("walking");
   }
 
   let html = report ? report.html : extractHtml(raw, wish, true);
@@ -409,25 +410,37 @@ con.addEventListener("action", (e) => act(e.detail));
 
 // Walking: a tap on a thing in the scene is a wish to go there; a tap on a
 // ghost regenerates the world from that very token with the other choice.
-function walkTo(kind) {
+// the camera leans toward what was tapped while the next world is dreamt;
+// the crossfade into the new world ends the lean
+function lean(el) {
+  const scene = document.querySelector(".scene");
+  if (!scene || !el) return;
+  const r = el.getBoundingClientRect();
+  scene.style.setProperty("--wx", ((r.left + r.width / 2) / innerWidth * 100).toFixed(1) + "%");
+  scene.style.setProperty("--wy", ((r.top + r.height / 2) / innerHeight * 100).toFixed(1) + "%");
+  scene.classList.add("walking");
+}
+function walkTo(kind, el) {
   if (state.dreaming) return;
+  lean(el);
   con.wish = `walk to the ${kind}`;
   con.submit();
 }
-function walkInto(index, kind) {
+function walkInto(index, kind, el) {
   const cur = state.worlds[state.current];
   if (state.dreaming || !cur) return;
   const ghost = (cur.ghosts || []).find((g) => g.index === index && g.kind === kind);
   if (!ghost || !cur.raw || ghost.at == null) return con.setStatus("this ghost has no road back to it");
+  lean(el);
   const messages = cur.messages || [{ role: "system", content: systemFor("spec") }, { role: "user", content: userMessage(cur.wish, "spec") }];
   dream(cur.wish.replace(/ · .*$/, ""), { messages, raw: cur.raw, ghost }).catch((err) => { console.error(err); con.setStatus("the fork broke: " + (err?.message || err), true); state.dreaming = false; con.setDreaming(false); });
 }
 document.addEventListener("click", (e) => {
   if (e.composedPath().includes(con)) return;
   const g = e.target.closest?.(".el.ghost");
-  if (g) return walkInto(+g.dataset.ghost, g.dataset.kind);
+  if (g) return walkInto(+g.dataset.ghost, g.dataset.kind, g);
   const el = e.target.closest?.(".el");
-  if (el?.dataset.kind) return walkTo(el.dataset.kind);
+  if (el?.dataset.kind) return walkTo(el.dataset.kind, el);
 });
 
 // Depth: the scene shifts a little with the pointer or the phone's tilt, far
@@ -457,7 +470,7 @@ con.addEventListener("wish", (e) => {
     con.setDreaming(false);
   });
 });
-con.addEventListener("stop", () => { state.dreaming = false; replaying++; state.engine?.interruptGenerate(); });
+con.addEventListener("stop", () => { state.dreaming = false; replaying++; state.engine?.interruptGenerate(); document.querySelector(".scene")?.classList.remove("walking"); });
 
 /* ------------------------------------------------------------------ */
 /* a dry run for browsers without a GPU                                */
