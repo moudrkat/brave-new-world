@@ -228,8 +228,8 @@ function parseColor(str) {
 // The world on screen goes into the conversation, so "make it night" or
 // "more birds" is a change to it rather than a new place. A remembered dream
 // counts too: it has a spec like any other.
-function messagesFor(wish, strategy) {
-  const msgs = [{ role: "system", content: systemFor(strategy) }];
+function messagesFor(wish, strategy, salt = 0) {
+  const msgs = [{ role: "system", content: systemFor(strategy, { wish, salt }) }];
   const prev = state.worlds[state.current];
   if (prev && !prev.zero && (strategy === "spec" ? prev.spec : prev.html)) {
     msgs.push({ role: "user", content: prev.wish });
@@ -392,7 +392,7 @@ async function dream(wish, fork = null) {
       retries++;
       con.setStatus(`the page came back broken (${bad.join(", ")}), asking again · ${retries}/${MAX_RETRIES}`);
       // not shown its broken attempt: shown it, a small model copies it back at near-total certainty
-      messages = strategy === "spec" ? messagesFor(wish, strategy) : [...messages, { role: "assistant", content: raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }];
+      messages = strategy === "spec" ? messagesFor(wish, strategy, retries) : [...messages, { role: "assistant", content: raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }];
       con.setDreaming(true);
     }
   } catch (err) {
@@ -658,7 +658,7 @@ async function walkInto(index, kind, el) {
   const ghost = (cur.ghosts || []).find((g) => g.index === index && g.kind === kind);
   if (!ghost || !cur.raw || ghost.at == null) return con.setStatus("this ghost has no road back to it");
   lean(el);
-  const messages = cur.messages || [{ role: "system", content: systemFor("spec") }, { role: "user", content: userMessage(cur.wish, "spec") }];
+  const messages = cur.messages || [{ role: "system", content: systemFor("spec", { wish: cur.wish }) }, { role: "user", content: userMessage(cur.wish, "spec") }];
   dream(cur.wish.replace(/ · .*$/, ""), { messages, raw: cur.raw, ghost }).catch((err) => { console.error(err); con.setStatus("the fork broke: " + (err?.message || err), true); state.dreaming = false; con.setDreaming(false); });
 }
 document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && (e.target.classList?.contains("sign") || e.target.classList?.contains("lever"))) { e.preventDefault(); e.target.click(); } });

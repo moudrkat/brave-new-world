@@ -204,8 +204,52 @@ const shuffled = (list) => list.map((v) => [Math.random(), v]).sort((a, b) => a[
 // One example's console, said rather than shown: a voice to learn, no block to copy.
 const proseConsole = (ex) => `console on the ${ex.console.side} edge, ${ex.console.tone}, ${ex.console.shape}, ${ex.console.width}; prompt "${ex.console.prompt}"; button "${ex.console.button}"; levers ${ex.console.buttons.map((b) => `"${b.label}" (${b.action})`).join(", ")}; door "${ex.next[0]}".`;
 export const EXAMPLE_MODE = true; // what ships; the eval's default, so it measures what ships
-export function systemSpec({ example = EXAMPLE_MODE } = {}) {
-  const [exWish, raw] = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)];
+
+// A model this small copies the example it is shown, field by field: shown
+// three fixed examples, 26 of 32 worlds stood on the two grounds those
+// examples had. So the example is tuned to the wish. Its time, weather and
+// ground follow the wish's plain cues, and where the wish says nothing they
+// are drawn afresh for every wish, as is the panel's design, so no two wishes
+// are handed the same default world. Things, words and colors of the things
+// stay the example's own, and the prompt says they belong to it. The same
+// wish always gets the same example; a fresh retry gets the next one.
+const PALETTES = {
+  dawn: [["#f7c6a3", "#e88a6a", "#7b4a6e"], ["#fbeff0", "#dfe6f2", "#c5d0e6"], ["#ffd9b0", "#c98a9a", "#5b3a6e"], ["#e9d5c3", "#b7c4d6", "#6e7fa3"]],
+  noon: [["#bfe3ff", "#6fb1e6", "#3d7fb8"], ["#f4b183", "#e8622a"], ["#e6f0f8", "#9cc4e4", "#4a86b8"], ["#fff3c4", "#f6c453", "#c98a2a"]],
+  dusk: [["#2b1b4e", "#7a4f8c", "#c98a9a"], ["#3b3a4a", "#b8401c", "#f4b183"], ["#1e2a44", "#7a4f8c", "#e0a458"], ["#4a1d3a", "#c2456a", "#ffb37a"]],
+  night: [["#05060f", "#1b1f3a", "#2f3a5a"], ["#02131f", "#0b3d4a", "#1e6f6a"], ["#0a0616", "#2a1a4a", "#4a2c6e"], ["#000000", "#101820", "#26333f"]],
+};
+const GROUND_COLORS = { sea: "#2f5d8a", sand: "#c9a86a", grass: "#3f7a3a", snow: "#e8eef5", stone: "#6b6b70", floor: "#7a5a3a", void: "#0a0a12", clouds: "#dfe6f2", wheat: "#d4b04a", lava: "#8b2410", ice: "#bfe3f2", moss: "#3a5a34", water: "#3a6a8a" };
+const ACCENTS = ["#ff6f91", "#e0a458", "#4fd1c5", "#9b6bff", "#ff6a3d", "#b39ddb", "#e6ff8a", "#ff5c8a"];
+const hashOf = (s) => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; };
+export function exampleFor(wish = "", salt = 0) {
+  const h = hashOf((wish || String(Math.random())).trim().toLowerCase()) + salt * 2654435761;
+  const at = (list, k) => list[hashOf(h + ":" + k) % list.length];
+  const w = String(wish).toLowerCase();
+  const cue = (field) => { for (const [re, ok] of CUES[field]) if (re.test(w)) return ok[0]; return null; };
+  const [exWish, raw] = EXAMPLES[Math.abs(h) % EXAMPLES.length];
+  const ex = JSON.parse(JSON.stringify(raw));
+  ex.time = cue("time") || at(TIMES, 1);
+  ex.weather = cue("weather") || (at([0, 1, 2, 3], 2) < 2 ? "clear" : at(WEATHERS, 3));
+  ex.ground = cue("ground") || at(GROUNDS.filter((g) => g !== "void"), 4);
+  ex.sky = at(PALETTES[ex.time], 5);
+  ex.ground_color = GROUND_COLORS[ex.ground] || ex.ground_color;
+  ex.ink = lum(ex.sky[ex.sky.length - 1]) < 0.5 ? at(["#f6e9dc", "#ffe9b3", "#e8ffb0", "#f0e6ff"], 6) : at(["#1b1620", "#2b2118", "#1e2a44", "#3a1f2e"], 6);
+  ex.accent = at(ACCENTS, 7);
+  ex.console = { ...ex.console, side: at(SIDES, 8), tone: at(TONES, 9), shape: at(CON_SHAPES, 10), width: at(WIDTHS, 11) };
+  ex.text_place = at(PLACES, 12);
+  ex.font = at(FONTS, 13);
+  return [exWish, ex];
+}
+// what a spec could have copied from the example it was shown: colors and content words
+function marksOf(ex) {
+  const set = new Set();
+  for (const c of [...ex.sky, ex.ground_color, ex.ink, ex.accent, ...ex.elements.map((e) => e.color)]) set.add("c:" + c);
+  for (const w of (ex.title + " " + ex.lines.join(" ")).toLowerCase().split(/[^a-z]+/)) if (w.length > 4) set.add("w:" + w);
+  return set;
+}
+export function systemSpec({ example = EXAMPLE_MODE, wish = "", salt = 0 } = {}) {
+  const [exWish, raw] = exampleFor(wish, salt);
   const ex = {};
   for (const k of ["title", "time", "weather", "sky", "ground", "ground_color", "ink", "accent", "font", "text_place", "motion", "elements", "lines", "console", "next"]) if (!((example === "bare" || example === "prose") && (k === "console" || k === "next"))) ex[k] = raw[k];
   return [
@@ -687,14 +731,16 @@ export const EXAMPLE_MARKS = (() => {
   return set;
 })();
 
-// 1 when nothing of the examples shows up in a spec, 0 when it is mostly copied.
-export function originality(spec) {
+// 1 when nothing of the example shows up in a spec, 0 when it is mostly copied.
+// Given the wish, it checks against the example that wish was actually shown.
+export function originality(spec, wish = null, salt = 0) {
   if (!spec) return null;
+  const MARKS = wish != null ? new Set([...marksOf(exampleFor(wish, salt)), ...EXAMPLE_MARKS]) : EXAMPLE_MARKS;
   const marks = [];
   for (const c of [...spec.sky, spec.ground_color, spec.ink, spec.accent, ...spec.elements.map((e) => e.color)]) marks.push("c:" + c);
   for (const w of (spec.title + " " + spec.lines.join(" ")).toLowerCase().split(/[^a-z]+/)) if (w.length > 4) marks.push("w:" + w);
   if (!marks.length) return 1;
-  const copied = marks.filter((m) => EXAMPLE_MARKS.has(m)).length;
+  const copied = marks.filter((m) => MARKS.has(m)).length;
   return 1 - Math.min(1, copied / Math.max(4, marks.length) * 2);
 }
 
@@ -702,7 +748,7 @@ export function originality(spec) {
 const CUES = {
   time: [[/\b(dawn|sunrise|first light|morning|4am|5am)\b/, ["dawn"]], [/\b(noon|midday|afternoon|day)\b/, ["noon"]], [/\b(dusk|sunset|evening|twilight)\b/, ["dusk"]], [/\b(night|midnight|2am|3am|stars?)\b/, ["night"]]],
   weather: [[/\brain(y|ing)?\b|\bstorm\b/, ["rain"]], [/\bsnow(s|ing|y)?\b/, ["snow"]], [/\b(fog|mist|haze)\b/, ["fog"]], [/\bstars?\b/, ["stars"]], [/\b(embers?|sparks?|lava|volcano)\b/, ["embers"]], [/\b(petals?|blossom|cherry)\b/, ["petals"]], [/\b(fireflies|lanterns?|glow)\b/, ["fireflies"]], [/\b(under ?water|ocean|sea ?bed|trench)\b/, ["bubbles"]]],
-  ground: [[/\b(sea|ocean|waves?|lake|water|trench|reef)\b/, ["sea", "water", "ice"]], [/\b(desert|dunes?|beach|sand)\b/, ["sand"]], [/\b(snow|frozen|ice|glacier)\b/, ["snow", "ice"]], [/\b(forest|garden|meadow|grass|moss|field)\b/, ["grass", "moss", "wheat"]], [/\b(room|kitchen|attic|library|ballroom|hall|bar|shop|station|cathedral|temple|monastery|hospital|pool)\b/, ["floor", "stone"]], [/\b(lava|volcano)\b/, ["lava"]], [/\b(cloud|sky|space|orbit|planet|moon)\b/, ["clouds", "void"]], [/\bwheat\b/, ["wheat"]]],
+  ground: [[/\b(sea|ocean|waves?|lake|water|trench|reef)\b/, ["sea", "water", "ice"]], [/\b(desert|dunes?|beach|sand)\b/, ["sand"]], [/\b(snow|frozen|ice|glacier)\b/, ["snow", "ice"]], [/\b(forest|garden|meadow|grass|moss|field)\b/, ["grass", "moss", "wheat"]], [/\b(city|street|rooftop|market|square|plaza)\b/, ["stone", "floor"]], [/\b(room|kitchen|attic|library|ballroom|hall|bar|shop|station|cathedral|temple|monastery|hospital|pool)\b/, ["floor", "stone"]], [/\b(lava|volcano)\b/, ["lava"]], [/\b(cloud|sky|space|orbit|planet|moon)\b/, ["clouds", "void"]], [/\bwheat\b/, ["wheat"]]],
   kinds: [[/\blighthouse/, ["lighthouse"]], [/\bpyramids?\b/, ["pyramid"]], [/\bbirch/, ["birch", "tree"]], [/\bwhale/, ["whale"]], [/\bpiano/, ["piano"]], [/\bclocks?\b/, ["clock"]], [/\bbooks?|library|bookshop/, ["book"]], [/\bbirds?\b|swallows/, ["bird"]], [/\btrain\b/, ["train"]], [/\bcandle/, ["candle"]], [/\blanterns?\b/, ["lantern"]], [/\bmountain|cliff/, ["mountain"]], [/\bvolcano/, ["volcano"]], [/\bcity|rooftop|skyline/, ["skyline", "house", "tower", "window"]], [/\bsuns?\b/, ["sun"]], [/\bmoon\b/, ["moon", "planet"]], [/\bplanet/, ["planet"]], [/\bhouse|kitchen|attic|bakery/, ["house", "window", "door"]], [/\btemple|monastery|cathedral/, ["temple", "arch", "column", "bell"]], [/\bkoi|fish\b/, ["fish"]], [/\bgoats?|deer/, ["deer"]], [/\bflowers?|wildflowers|garden/, ["flower"]], [/\bstars?\b/, ["star", "comet"]], [/\bboat|ship\b/, ["boat"]], [/\bbells?\b/, ["bell"]], [/\bfire|embers|candle/, ["fire", "candle"]], [/\bjellyfish|bioluminescent/, ["jellyfish"]], [/\bmirror/, ["mirror"]], [/\btrees?|oak\b|forest/, ["tree", "pine", "birch", "palm"]], [/\bswimming pool|pool\b/, ["floor"]]],
 };
 export function sense(spec, wish) {

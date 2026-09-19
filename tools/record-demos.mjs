@@ -53,7 +53,7 @@ for (const wish of wishes) {
     const w = await evaluate(`JSON.stringify((() => { const w = window.__bnw.worlds.at(-1); return { wish: w.wish, spec: w.spec, ghosts: w.ghosts, certainty: w.certainty, raw: w.raw, retries: w.retries, issues: w.issues.map(i => i.kind), seconds: w.seconds, model: w.model, date: w.date, tokens: w.tokens.map(t => ({ token: t.token, p: +t.p.toFixed(3), alts: t.alts.slice(0, 5).map(a => ({ token: a.token, p: +a.p.toFixed(3) })) })) }; })())`);
     const d = JSON.parse(w);
     dreamt++;
-    const score = await evaluate(`(async () => { const m = await import("./mind.js"); const s = window.__bnw.worlds.at(-1).spec; return s ? { sense: m.sense(s, ${JSON.stringify(wish)}), original: m.originality(s) } : null; })()`);
+    const score = await evaluate(`(async () => { const m = await import("./mind.js"); const s = window.__bnw.worlds.at(-1).spec; return s ? { sense: m.sense(s, ${JSON.stringify(wish)}), original: m.originality(s, ${JSON.stringify(wish)}) } : null; })()`);
     console.log(`${wish} · take ${k + 1} → "${d.spec?.title}" · ${d.tokens.length} tokens · ${d.seconds?.toFixed(1)} s · retries ${d.retries} · sense ${score?.sense?.toFixed(2)} original ${score?.original?.toFixed(2)} · console ${d.spec?.console.side}/${d.spec?.console.tone}/${d.spec?.console.shape} · levers ${d.spec?.console.buttons.map((b) => b.label + "→" + b.action).join(", ")}`);
     if (d.spec && score) takes.push({ d, key: score.sense * 2 + score.original });
     if (d.spec) everyTake.push({ wish, take: k + 1, score, d });

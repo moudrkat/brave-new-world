@@ -124,7 +124,7 @@ async function run() {
       const card = addCard(section, r, wish);
       const measured = await paint(card, r.html);
       r.score = score(strategy === "spec" ? r.html : r.raw, wish, measured);
-      r.score.original = strategy === "spec" ? originality(r.spec) : null;
+      r.score.original = strategy === "spec" ? originality(r.spec, wish, r.fatalAfterRetry != null ? 1 : 0) : null;
       r.score.sense = strategy === "spec" ? sense(r.spec, wish) : null;
       r.score.prose = strategy === "spec" ? proseScore(r.spec) : null;
       r.score.buttons = strategy === "spec" ? buttonSense(r.spec) : null;
@@ -150,7 +150,7 @@ async function run() {
 
 async function dream(modelId, wish, maxTokens, seed, temperature, strategy, extraMessages = [], forceTemp = false) {
   const prior = SET === "followups" && strategy === "spec" ? [{ role: "user", content: PRIOR.wish }, { role: "assistant", content: JSON.stringify(PRIOR.spec) }] : [];
-  const messages = [{ role: "system", content: systemFor(strategy, { example: EXAMPLE }) }, ...prior, { role: "user", content: userMessage(wish, strategy, { hints: PARAMS.get("hints") === "1" }) }, ...extraMessages];
+  const messages = [{ role: "system", content: systemFor(strategy, { example: EXAMPLE, wish, salt: forceTemp ? 1 : 0 }) }, ...prior, { role: "user", content: userMessage(wish, strategy, { hints: PARAMS.get("hints") === "1" }) }, ...extraMessages];
   const extra = { seed, logprobs: false, top_logprobs: undefined };
   if (strategy === "html") extra.max_tokens = maxTokens;
   if (strategy === "html" || PARAMS.has("temp") || forceTemp) extra.temperature = temperature;
