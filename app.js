@@ -255,7 +255,9 @@ async function generate(engine, messages, wish, strategy, grammar = null, quiet 
       con.updateStats(t0, n);
       if (strategy === "html" && /<body/i.test(raw)) applyWorld(extractHtml(raw, wish), { partial: true });
       // the world forms as it is written: whatever the spec says so far, painted
-      if (strategy === "spec") { try { const so = completeJson(raw); if (so && (so.sky || so.title)) { const sp = normalizeSpec(so); sp.next = Array.isArray(so.next) ? so.next.filter((x) => typeof x === "string").slice(0, 1) : []; applyWorld(renderWorld(sp), { partial: true, quick: true, design: so.console && typeof so.console === "object" ? designFor(sp) : null }); con.forming(true); } } catch (e) { console.warn("forming skipped", e); } }
+      if (strategy === "spec") { try { const so = completeJson(raw); if (so && (so.sky || so.title)) { const sp = normalizeSpec(so); sp.next = Array.isArray(so.next) ? so.next.filter((x) => typeof x === "string").slice(0, 1) : [];
+          // nothing stands in for things not yet named: no default stars, and a half-written kind waits for its name
+          sp.elements = Array.isArray(so.elements) ? sp.elements.filter((e, i) => so.elements[i] && so.elements[i].kind === e.kind) : []; applyWorld(renderWorld(sp), { partial: true, quick: true, design: so.console && typeof so.console === "object" ? designFor(sp) : null }); con.forming(true); } } catch (e) { console.warn("forming skipped", e); } }
     }
   }
   if (!quiet) con.updateStats(t0, n);
