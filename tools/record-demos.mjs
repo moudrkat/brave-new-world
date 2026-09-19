@@ -46,6 +46,7 @@ let dreamt = 0;
 for (const wish of wishes) {
   const takes = [];
   for (let k = 0; k < TAKES; k++) {
+   try {
     // each demo starts from world zero, so none is an edit of the one before
     const before = await evaluate(`window.__bnw.worlds.length`);
     await evaluate(`window.__bnw.current = 0; (() => { const c = document.querySelector("bnw-console"); c.wish = ${JSON.stringify(wish)}; c.submit(); })()`);
@@ -57,6 +58,8 @@ for (const wish of wishes) {
     console.log(`${wish} · take ${k + 1} → "${d.spec?.title}" · ${d.tokens.length} tokens · ${d.seconds?.toFixed(1)} s · retries ${d.retries} · sense ${score?.sense?.toFixed(2)} original ${score?.original?.toFixed(2)} · console ${d.spec?.console.side}/${d.spec?.console.tone}/${d.spec?.console.shape} · levers ${d.spec?.console.buttons.map((b) => b.label + "→" + b.action).join(", ")}`);
     if (d.spec && score) takes.push({ d, key: score.sense * 2 + score.original });
     if (d.spec) everyTake.push({ wish, take: k + 1, score, d });
+    if (ALL_TAKES) writeFileSync(ALL_TAKES, JSON.stringify(everyTake)); // after every take, so a crash loses nothing
+   } catch (e) { console.log(`${wish} · take ${k + 1} failed: ${e?.message || e}`); await evaluate(`window.__bnw.dreaming = false`).catch(() => {}); }
   }
   if (!takes.length) { console.log("  nothing usable, skipped"); continue; }
   takes.sort((a, b) => b.key - a.key);
