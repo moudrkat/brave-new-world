@@ -104,7 +104,7 @@ const CSS = `
 .top .stats { cursor: pointer; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top .stats:empty { display: none; }
 .top .right { display: flex; gap: 12px; align-items: baseline; min-width: 0; }
-.link { background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--dim); font: inherit; letter-spacing: inherit; text-transform: inherit; padding: 0 0 1px; cursor: pointer; }
+.link { background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--dim); font: inherit; letter-spacing: inherit; text-transform: inherit; padding: 0 0 1px; cursor: pointer; white-space: nowrap; }
 .link:hover { color: var(--accent); border-color: var(--accent); }
 :host(:not([data-world])) .link { display: none; }
 
@@ -251,6 +251,7 @@ button.go:hover { text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 70%, tr
   :host([data-side="left"]) .acts, :host([data-side="right"]) .acts { flex-direction: row; }
   :host([data-side="left"]) .doors, :host([data-side="right"]) .doors { flex-direction: row; align-items: baseline; }
   .door { font-size: 14.5px; }
+  .top .stats { max-width: 46vw; }
   :host([data-side="right"]) .acts { justify-content: flex-end; }
   :host([data-side="right"]) form { flex-direction: row-reverse; }
   :host([data-side="right"]) input { text-align: right; }
