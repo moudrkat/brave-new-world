@@ -134,7 +134,7 @@ const designFor = (spec, certainty) => (spec ? { ...spec.console, next: spec.nex
 // put it now; a browser without the API just swaps.
 function applyWorld(html, opts = {}) {
   if (!html || html === applied) return;
-  if (opts.partial || opts.quick || !document.startViewTransition || document.documentElement.classList.contains("low-power")) { swapWorld(html, opts); if (opts.quick) document.querySelector(".scene")?.classList.add("micro"); return; }
+  if (opts.partial || opts.quick || !document.startViewTransition || document.documentElement.classList.contains("low-power")) { swapWorld(html, opts); if (opts.quick && !opts.partial) document.querySelector(".scene")?.classList.add("micro"); return; }
   const wasWorld = con.worldActive;
   const vt = document.startViewTransition(() => swapWorld(html, opts));
   // a browser that never gets round to capturing the old page would hold the
@@ -145,7 +145,7 @@ function applyWorld(html, opts = {}) {
   // the brave new world is the moment one dissolves into the next; the status says so while it lasts
   if (wasWorld) vt.ready.then(() => { const back = con.statusText; if (back.startsWith("between two worlds")) return; con.setStatus("between two worlds · this part nobody designed", false, true); setTimeout(() => { if (con.statusText.startsWith("between two worlds")) con.setStatus(back, false, true); }, 1700); }).catch(() => {});
 }
-function swapWorld(html, { partial = false } = {}) {
+function swapWorld(html, { partial = false, design = null } = {}) {
   applied = html;
   const doc = new DOMParser().parseFromString(html, "text/html");
   const isZero = doc.body?.classList.contains("world-zero");
@@ -158,11 +158,12 @@ function swapWorld(html, { partial = false } = {}) {
   document.body.replaceChildren(...[...(doc.body?.childNodes || [])].filter((n) => !(n.nodeName === "BNW-CONSOLE" || n.nodeName === "SCRIPT")));
   document.body.appendChild(con);
   con.worldActive = !isZero;
-  if (!partial) deriveConsoleColors(isZero);
+  if (!partial || design) deriveConsoleColors(isZero);
   const side = getComputedStyle(document.documentElement).getPropertyValue("--bnw-side").trim();
   const words = getComputedStyle(document.documentElement).getPropertyValue("--bnw-words").trim();
   if (words) con.dataset.words = words; else delete con.dataset.words;
   if (!partial) con.applyDesign(designOf ? designOf : side === "top" ? { side: "top" } : null);
+  else if (design) con.applyDesign(design); // a panel forming as the model writes it: it moves edge, tone and shape as they are decided
   window.scrollTo(0, 0);
   paintSigns();
 }
@@ -254,7 +255,7 @@ async function generate(engine, messages, wish, strategy, grammar = null, quiet 
       con.updateStats(t0, n);
       if (strategy === "html" && /<body/i.test(raw)) applyWorld(extractHtml(raw, wish), { partial: true });
       // the world forms as it is written: whatever the spec says so far, painted
-      if (strategy === "spec") { try { const so = completeJson(raw); if (so && (so.sky || so.title)) { const sp = normalizeSpec(so); sp.next = Array.isArray(so.next) ? so.next.filter((x) => typeof x === "string").slice(0, 1) : []; applyWorld(renderWorld(sp), { partial: true, quick: true }); con.forming(true); } } catch (e) { console.warn("forming skipped", e); } }
+      if (strategy === "spec") { try { const so = completeJson(raw); if (so && (so.sky || so.title)) { const sp = normalizeSpec(so); sp.next = Array.isArray(so.next) ? so.next.filter((x) => typeof x === "string").slice(0, 1) : []; applyWorld(renderWorld(sp), { partial: true, quick: true, design: so.console && typeof so.console === "object" ? designFor(sp) : null }); con.forming(true); } } catch (e) { console.warn("forming skipped", e); } }
     }
   }
   if (!quiet) con.updateStats(t0, n);
