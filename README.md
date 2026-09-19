@@ -124,9 +124,21 @@ say what they do, whether the doors lead somewhere other than back. Three sets:
   world survived.
 
 Results for the shipped model are in `evals/2026-09-19-*.md`; the full JSON
-(specs, tokens, issues) sits next to them.
+(specs, tokens, issues) sits next to them, gitignored for size.
 
 RESULTS_TABLE
+
+One finding worth more than the table. Shown a worked example in the prompt,
+the model designs the world and plagiarizes the panel: on the final grammar,
+27 of 32 consoles used one of the three examples' consoles, label for label
+("fold", "unfold", "more houses"). Take the console out of the example and
+the copying stops entirely, and so does the model's ability to write one: 22
+of 32 first attempts were not language. Describe one example console in prose
+instead of JSON and the copying halves, but the levers stop meaning what they
+say (label matches action 0.19 against 0.64). So the example ships, the doors
+are mostly its own (12 of 77 copied), and the number stays in this paragraph.
+The tighter grammar for short strings (a letter first, plain characters after)
+came out of the bare run's failures and stayed.
 
 ## The rest
 
