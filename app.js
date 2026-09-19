@@ -401,9 +401,13 @@ function pick(i) {
 /* ------------------------------------------------------------------ */
 
 let replaying = 0;
+let replayCtl = null; // { skip } while a replay runs; a tap sets skip and the replay lands at once
+const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+async function settleReplay() { if (!replayCtl) return; replayCtl.skip = true; while (replayCtl) await sleepMs(15); }
 async function replay(d, { label, status }) {
-  if (state.dreaming) return;
+  if (state.dreaming) { if (replayCtl) await settleReplay(); else return; }
   const token = ++replaying;
+  const ctl = replayCtl = { skip: false };
   const spec = normalizeSpec(d.spec);
   const html = renderWorld(spec, { ghosts: d.ghosts || [], certainty: d.certainty || null });
   designOf = designFor(spec, d.certainty);
@@ -416,12 +420,12 @@ async function replay(d, { label, status }) {
   let prefix = "";
   const pace = Math.max(6, Math.min(24, 7000 / Math.max(1, toks.length))); // about seven seconds, whatever it wrote
   for (let k = 0; k < toks.length; k++) {
-    if (token !== replaying) { state.dreaming = false; return; }
+    if (token !== replaying) { state.dreaming = false; if (replayCtl === ctl) replayCtl = null; return; }
     const t = toks[k];
     con.paintToken(t.token, t.p, t.alts || [{ token: t.token, p: t.p }], prefix);
     prefix += t.token;
     if (k % 8 === 0) con.updateStats(t0, k + 1, "replayed", d.seconds || null);
-    await new Promise((r) => setTimeout(r, pace));
+    if (!ctl.skip) await new Promise((r) => setTimeout(r, pace));
   }
   con.updateStats(t0, toks.length, "replayed", d.seconds || null);
   setTimeout(() => con.openInside(false), 2500);
@@ -433,6 +437,7 @@ async function replay(d, { label, status }) {
   con.renderHistory(state.worlds, state.current, pick);
   state.dreaming = false;
   con.setDreaming(false);
+  if (replayCtl === ctl) replayCtl = null;
   con.setStatus(status);
   if (d.ghosts?.length) hintLater("the faint things are ghosts of what it almost placed · tap a thing to walk to it, a ghost to walk into it");
   remember(state.worlds[state.current]);
@@ -500,9 +505,9 @@ con.addEventListener("share", async () => {
 // Some ask the model again, the rest are levers on the world's spec, so they
 // work on a remembered dream too, without a model.
 const SURPRISES = ["a greenhouse on the moon", "a bathhouse for dragons", "the last train before the flood", "a lighthouse in a wheat field", "a violin shop at closing time", "a city where it rains upward", "an orchard on a glacier", "the waiting room of the sea"];
-function act(action) {
+async function act(action) {
+  if (state.dreaming) { if (replayCtl) await settleReplay(); else return; }
   const cur = state.worlds[state.current];
-  if (state.dreaming) return;
   const a = parseAction(action);
   if (!a) return con.setStatus("this lever is not connected to anything: " + action);
   if (a.verb === "inside") return con.toggleInside();
@@ -535,15 +540,16 @@ function lean(el) {
   scene.style.setProperty("--wy", ((r.top + r.height / 2) / innerHeight * 100).toFixed(1) + "%");
   scene.classList.add("walking");
 }
-function walkTo(kind, el) {
-  if (state.dreaming) return;
+async function walkTo(kind, el) {
+  if (state.dreaming) { if (replayCtl) await settleReplay(); else return; }
   lean(el);
   con.wish = `walk to the ${kind}`;
   con.submit();
 }
-function walkInto(index, kind, el) {
+async function walkInto(index, kind, el) {
+  if (state.dreaming) { if (replayCtl) await settleReplay(); else return; }
   const cur = state.worlds[state.current];
-  if (state.dreaming || !cur) return;
+  if (!cur) return;
   const ghost = (cur.ghosts || []).find((g) => g.index === index && g.kind === kind);
   if (!ghost || !cur.raw || ghost.at == null) return con.setStatus("this ghost has no road back to it");
   lean(el);
@@ -575,8 +581,8 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
 }
 
 con.addEventListener("wake", () => wake().catch(() => {}));
-con.addEventListener("wish", (e) => {
-  if (state.dreaming) return;
+con.addEventListener("wish", async (e) => {
+  if (state.dreaming) { if (replayCtl) await settleReplay(); else return; }
   dream(e.detail).catch((err) => {
     console.error(err);
     if (!con.awake) con.setStatus("wake the mind first, or step into a world it already dreamt", true);
@@ -585,7 +591,10 @@ con.addEventListener("wish", (e) => {
     con.setDreaming(false);
   });
 });
-con.addEventListener("stop", () => { state.dreaming = false; replaying++; cancelAhead(); state.engine?.interruptGenerate(); document.querySelector(".scene")?.classList.remove("walking"); });
+con.addEventListener("stop", async () => {
+  if (replayCtl) { await settleReplay(); if (con.wish.trim()) con.submit(); return; }
+  state.dreaming = false; replaying++; cancelAhead(); state.engine?.interruptGenerate(); document.querySelector(".scene")?.classList.remove("walking");
+});
 
 /* ------------------------------------------------------------------ */
 /* a mind on a server: OpenAI-compatible, streamed, logprobs if it has them */

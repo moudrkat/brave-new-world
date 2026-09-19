@@ -172,7 +172,6 @@ const CSS = `
   color: var(--fg); font-family: var(--font); font-size: 20px; font-weight: 300;
   padding: 14px 18px; cursor: pointer; text-align: left; min-height: 56px;
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
-  animation: beckon 2.6s ease-in-out infinite;
 }
 .wake b { font-weight: 400; color: var(--accent); }
 .wake small { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; color: var(--dim); margin-top: 4px; text-transform: lowercase; }
@@ -195,13 +194,14 @@ const CSS = `
 .history li::before { content: "· "; color: var(--accent); }
 .history li.current, .history li:hover { color: var(--fg); }
 
-form { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--line); margin-top: 4px; }
-form:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+form { display: flex; align-items: center; gap: 14px; margin-top: 10px; padding: 2px 16px; border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); border-radius: var(--radius); background: color-mix(in srgb, var(--accent) 7%, transparent); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); animation: beckon 3s ease-in-out infinite; }
+form:focus-within { border-color: var(--accent); animation: none; background: color-mix(in srgb, var(--accent) 11%, transparent); }
+:host([data-world]) form { animation: none; }
 input {
   flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--fg);
-  font-family: var(--font); font-size: clamp(18px, 2.2vw, 26px); font-weight: 300; padding: 10px 0; caret-color: var(--accent);
+  font-family: var(--font); font-size: clamp(20px, 2.4vw, 28px); font-weight: 300; padding: 12px 0; caret-color: var(--accent);
 }
-input::placeholder { color: var(--dim); font-style: italic; }
+input::placeholder { color: color-mix(in srgb, var(--fg) 70%, transparent); font-style: italic; }
 input:disabled { opacity: 0.5; }
 button.go { background: transparent; border: 0; color: var(--accent); font-family: var(--font); font-style: italic; font-size: 19px; cursor: pointer; padding: 8px 2px; min-height: 40px; white-space: nowrap; }
 button.go:hover { text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 70%, transparent); }
@@ -259,7 +259,8 @@ button.go:hover { text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 70%, tr
   .inside { max-height: 90px; }
   .act { font-size: 15px; padding: 6px 13px; }
   .wake { font-size: 18px; padding: 12px 14px; }
-  input { font-size: 17px; padding: 9px 0; }
+  input { font-size: 18px; padding: 10px 0; }
+  form { padding: 0 12px; }
   button.go { font-size: 17px; }
   .history { font-size: 13px; }
 }
@@ -279,6 +280,10 @@ const HTML = `
     <div id="ribbon" class="ribbon"><span id="ribbon-inner"></span></div>
     <div id="harness" class="harness"></div>
   </div>
+  <form id="ask" autocomplete="off">
+    <input id="wish" type="text" placeholder="wish for a world… a place, a mood, one word" spellcheck="false" enterkeyhint="go" autocapitalize="off" maxlength="400" />
+    <button id="go" class="go" type="submit">dream</button>
+  </form>
   <div id="acts" class="acts"></div>
   <div id="doors" class="doors"></div>
   <div id="wakebox" class="wakebox">
@@ -289,10 +294,6 @@ const HTML = `
     <div id="chips" class="chips"></div>
   </div>
   <ol id="history" class="history"></ol>
-  <form id="ask" autocomplete="off">
-    <input id="wish" type="text" placeholder="a place, a mood, one word, or a change to this world…" spellcheck="false" enterkeyhint="go" autocapitalize="off" maxlength="400" />
-    <button id="go" class="go" type="submit">dream</button>
-  </form>
   <p id="status" class="status"></p>
 </div>
 <div id="tip" class="tip" hidden></div>
@@ -346,7 +347,7 @@ function tokColor(p) {
 }
 const visible = (s) => s.replace(/\n/g, "⏎").replace(/ /g, "␣").replace(/\t/g, "⇥") || "∅";
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const DEFAULT_PROMPT = "a place, a mood, one word, or a change to this world…";
+const DEFAULT_PROMPT = "wish for a world… a place, a mood, one word";
 
 export class BnwConsole extends HTMLElement {
   constructor() {
@@ -434,7 +435,7 @@ export class BnwConsole extends HTMLElement {
         el.type = "button"; el.className = "door"; el.textContent = w; el.dataset.wish = w;
         // the door's weight is the model's certainty of it: the one it believed in most is boldest
         if (p != null) { el.style.setProperty("--p", p.toFixed(2)); el.title = `it was ${Math.round(p * 100)}% sure you would want this next`; } else el.title = "a world it thinks you might want next: wish it";
-        el.addEventListener("click", () => { if (this.dreaming) return; this.wish = w; this.submit(); });
+        el.addEventListener("click", () => { this.wish = w; this.submit(); });
         doors.appendChild(el);
       });
     }
