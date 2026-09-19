@@ -33,7 +33,8 @@ const TYPE_MS = 38, HOLD_ZERO = 1800, HOLD_WORLD = 3000, HOLD_LEVER = 2000, HOLD
 const LAST = "the brave new world"; // the film ends on whatever the model makes of its own title
 // the waiting runs faster than it happened; the typing and the worlds stay at 1x.
 // FILM_RATE=6 node tools/film.mjs --recompose out/brave-new-world re-cuts a take faster without re-recording
-const RATE_WAKE = 6, RATE_DREAM = +(process.env.FILM_RATE || 4.5), RATE_HOLD = +(process.env.FILM_HOLD || 1); // FILM_HOLD=1.6 tightens the pauses on a world too
+// the world forms while the model writes it, so a dream is no longer a wait: it runs only a little faster than it happened
+const RATE_WAKE = 6, RATE_DREAM = +(process.env.FILM_RATE || 2.5), RATE_HOLD = +(process.env.FILM_HOLD || 1.3); // FILM_HOLD=1.6 tightens the pauses on a world too
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const targets = async () => (await fetch(`http://localhost:${PORT}/json`)).json();
