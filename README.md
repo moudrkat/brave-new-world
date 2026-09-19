@@ -133,13 +133,6 @@ writing: `brainscope --model <id> --cors --host 127.0.0.1`, then open
 the server serves several. Nothing on the page changes; the wake button says
 where the wishes go.
 
-Prior art, for the curious: Google's Generative UI, Anthropic's Imagine with
-Claude and OpenUI's OUI-1 all have a large model write the interface on a
-server; Vercel's json-render and Google's A2UI are the same
-catalog-and-spec idea for dashboards; Loom is the ancestor of the ghosts. None
-of them put the model in the tab, none let it design its own panel from a
-grammar, and none draw its uncertainty into the picture.
-
 ## The rest
 
 - `world.js` the vocabulary, the grammar, the painter, the levers, the surprises
