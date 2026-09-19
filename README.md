@@ -154,6 +154,13 @@ are mostly its own (12 of 77 copied), and the number stays in this paragraph.
 The tighter grammar for short strings (a letter first, plain characters after)
 came out of the bare run's failures and stayed.
 
+Vague wishes show the same reflex from the other side. On the 16 wishes people
+actually type ("hi", "sad", "blue", "monday", one in Czech, one emoji), it
+made 14 different worlds, 25% needed a second attempt and 19% were still not
+language after it; and 5 of the 16 were the prompt example's own world
+wearing a new sky: "hi" got "Platform Nine, Vermilion", "somewhere warm" got
+the jazz bar under the sea. A small model with nothing to go on goes home.
+
 ## The rest
 
 - `world.js`: the vocabulary, the grammar, the painter, the levers.
