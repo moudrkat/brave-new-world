@@ -110,7 +110,7 @@ const CSS = `
 }
 .tok { --p: 1; color: var(--tok, var(--fg)); opacity: calc(0.3 + 0.7 * var(--p)); text-shadow: 0 0 calc(10px * (1 - var(--p))) var(--tok, transparent); cursor: default; }
 .tok:hover, .tok.held { outline: 1px solid var(--line); outline-offset: 1px; }
-.harness { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--dim); margin-top: 2px; }
+.harness { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .harness.bad { color: var(--rose); }
 .harness:empty { display: none; }
 

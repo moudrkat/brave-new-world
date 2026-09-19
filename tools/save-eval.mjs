@@ -13,7 +13,7 @@ const send = (method, params = {}) => new Promise((r) => { const id = ++seq; pen
 const ev = async (expression) => { const r = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }); if (r.result?.exceptionDetails) throw new Error(JSON.stringify(r.result.exceptionDetails).slice(0, 300)); return r.result?.result?.value; };
 const done = await ev("window.__eval.done");
 const md = await ev("window.__evalMarkdown()");
-const json = await ev(`JSON.stringify({ date: new Date().toISOString(), set: new URLSearchParams(location.search).get("set") || "wishes", ua: navigator.userAgent, done: window.__eval.done, results: window.__eval.results.map((e) => ({ ...e, runs: e.runs.map((r) => ({ ...r, html: undefined, fp: undefined })) })) })`);
+const json = await ev(`JSON.stringify({ date: new Date().toISOString(), set: new URLSearchParams(location.search).get("set") || "wishes", example: new URLSearchParams(location.search).get("ex") || "default", ua: navigator.userAgent, done: window.__eval.done, results: window.__eval.results.map((e) => ({ ...e, runs: e.runs.map((r) => ({ ...r, html: undefined, fp: undefined })) })) })`);
 ws.close();
 const { writeFileSync } = await import("node:fs");
 writeFileSync(stem + ".json", json);
