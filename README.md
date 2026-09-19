@@ -2,6 +2,8 @@
 
 *The brave new world is, in fact, always inside.*
 
+> ***Dedicated to everyone brave enough to leave the old world, whatever that means for them now.***
+
 I had been reading the Shoggoth debates and listening to the world-model
 talks, and at some point I could not resist.
 
@@ -210,5 +212,4 @@ catalog-and-spec idea for dashboards; Loom is the ancestor of the ghosts. None
 of them put the model in the tab, none let it design its own panel from a
 grammar, and none draw its uncertainty into the picture.
 
-Dedicated to everyone brave enough to leave the old world, whatever that means
-for them now.
+> ***Dedicated to everyone brave enough to leave the old world, whatever that means for them now.***
