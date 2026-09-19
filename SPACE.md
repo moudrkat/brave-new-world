@@ -21,7 +21,10 @@ you are wishing from. The model designs that panel too: which edge it sits on,
 its tone and shape, the invitation in the input, the word on the button, the
 levers beside it, and the doors that lead out of this world into the next.
 
-Not a chat. A world, with buttons.
+Not a chat. A world, with buttons. Tap a thing to walk to it; tap a ghost,
+the faint thing the model almost placed, to walk into the road not taken; the
+address bar holds the exact world, so a link opens it anywhere with nothing
+downloaded.
 
 While it dreams you watch its insides. Every token glows with the probability
 the model gave it, tapping one shows the words it almost said, and the things

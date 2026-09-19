@@ -21,20 +21,36 @@ draws a house. It is asked to fill in a form: a grammar-constrained JSON spec
 with a title, two lines of poem, colors, time, weather, ground, three to six
 things from a vocabulary of fifty-three, the design of its own console (side,
 tone, shape, width, the invitation in the input, the word on the button, one
-to three levers with a label in the world's voice and an action from a fixed
-set), and one to three doors: short wishes for the world you might want next.
+to three levers with a label in the world's voice and an action it composes),
+and one to three doors: short wishes for the world you might want next.
 Every token it produces is a choice, not syntax, because the syntax is enforced
 by the sampler. A JavaScript engine then paints what it named, properly. The
 model decides everything you see; the drawing of a lighthouse is ours.
 
-The buttons do things. The model names them; the engine pulls the lever
-(night, rain, more, less, calm, wild, undo, again, somewhere else). The doors
-are wishes: press one and the mind dreams it, with the world you are in still
-in its context, so "the same island at night" is an edit and "a desert" is a
-departure. Anything you type works the same way: a place, a mood, a single
-word, a change to what is on screen, another language. What comes back is
-always a world, because the grammar allows nothing else; whether it is a good
-one is what the evals measure.
+The buttons do things. The model names a lever and composes what it does,
+under the grammar: `set time night`, `set weather rain`, `add whale`, `more
+bird`, `fewer cloud`, `undo`, `again`, `elsewhere`. Every combination is legal
+by construction and the engine knows them all, so whether a lever called
+"hush" really sets the motion still is the model's design decision, and the
+eval scores it. The doors are wishes: press one and the mind dreams it, with
+the world you are in still in its context, so "the same island at night" is
+an edit and "a desert" is a departure. Anything you type works the same way:
+a place, a mood, a single word, a change to what is on screen, another
+language. What comes back is always a world, because the grammar allows
+nothing else; whether it is a good one is what the evals measure.
+
+The world is walkable, as far as this much model allows. Tap a thing in the
+scene and you wish to walk to it. Tap a ghost, the faint thing the model
+almost placed, and it regenerates the world from that very token with the
+other choice: a grammar whose root is the model's own text up to the fork,
+verbatim, then the road not taken. In the forked world, what it chose the
+first time is the ghost. The scene shifts a little under the pointer or the
+phone's tilt, far things less than near ones.
+
+Every world lives in the address bar. The hash holds the spec, the model's
+text, a byte of certainty per token and the ghosts, so a link opens the exact
+dream on any browser with nothing downloaded, levers included. The `link`
+in the panel copies it, or hands it to the phone's share sheet.
 
 ## The insides
 

@@ -22,14 +22,15 @@ const [base, out] = RECOMPOSE ? [null, positional[0]] : positional;
 const OW = 1080, OH = 1350, FPS = 30, PAPER = "0x07060b";
 const VIEW = PHONE ? { width: 390, height: 780, dsf: 3, mobile: true } : { width: 800, height: 1000, dsf: 2, mobile: false };
 
-// the three wishes: chosen to be as far from each other as the vocabulary allows
+// two typed wishes as far from each other as the vocabulary allows; the third
+// world comes through a door the model offers, and between them a lever and a
+// ghost get pressed, so the film shows every way of moving through a world
 const WISHES = [
   "a neon city in the rain, everything reflects",
   "a forest of white birches under snow, one red bird",
-  "a desert at noon, three black pyramids",
 ];
 const TYPE_MS = 48, HOLD_ZERO = 2200, HOLD_WORLD = 4200, HOLD_LEVER = 3000, HOLD_END = 3500;
-const RATE_WAKE = 5, RATE_DREAM = 1.6; // the waiting runs faster than it happened; the typing and the worlds stay at 1x
+const RATE_WAKE = 5, RATE_DREAM = 2.2; // the waiting runs faster than it happened; the typing and the worlds stay at 1x
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const targets = async () => (await fetch(`http://localhost:${PORT}/json`)).json();
@@ -102,26 +103,51 @@ async function film() {
     throw new Error("the dream never ended");
   };
 
+  const describe = async () => { const w = await ev(`JSON.stringify((w => ({ wish: w.wish, title: w.spec?.title, side: w.spec?.console.side, tone: w.spec?.console.tone, shape: w.spec?.console.shape, buttons: w.spec?.console.buttons, next: w.spec?.next, ghosts: (w.ghosts || []).map(g => g.kind), retries: w.retries, seconds: w.seconds, tokens: w.tokens?.length }))(window.__bnw.worlds.at(-1)))`); beat("world", { world: JSON.parse(w) }); console.log("  → " + w); };
+  // a solid lever, i.e. one that changes this world rather than asking for another
+  const pressLever = async () => {
+    const label = await ev(`(() => { const b = [...${CON}.shadowRoot.querySelectorAll(".act")].find(b => /set |add |remove |more |fewer /.test(b.title)); return b ? b.textContent : ""; })()`);
+    if (!label) return false;
+    beat("lever", { label });
+    await ev(`[...${CON}.shadowRoot.querySelectorAll(".act")].find(b => b.textContent === ${JSON.stringify(label)}).click()`);
+    await sleep(HOLD_LEVER);
+    console.log(`  pressed "${label}"`);
+    return true;
+  };
+  const walkIntoGhost = async () => {
+    const kind = await ev(`document.querySelector(".el.ghost")?.dataset.kind || ""`);
+    if (!kind) return false;
+    beat("ghost", { kind });
+    await ev(`document.querySelector(".el.ghost").dispatchEvent(new MouseEvent("click", { bubbles: true }))`);
+    beat("dream", { wish: "ghost: " + kind });
+    await waitDream();
+    await describe();
+    await sleep(HOLD_WORLD);
+    return true;
+  };
+  const takeDoor = async () => {
+    const door = await ev(`${CON}.shadowRoot.querySelector(".door")?.textContent || ""`);
+    if (!door) return false;
+    beat("door", { door });
+    await ev(`${CON}.shadowRoot.querySelector(".door").click()`);
+    beat("dream", { wish: "door: " + door });
+    await waitDream();
+    await describe();
+    await sleep(HOLD_WORLD);
+    return true;
+  };
+
   for (let k = 0; k < WISHES.length; k++) {
     beat("type", { wish: WISHES[k] });
     await type(WISHES[k]);
     beat("dream", { wish: WISHES[k] });
     await waitDream();
-    const w = await ev(`JSON.stringify((w => ({ title: w.spec?.title, side: w.spec?.console.side, tone: w.spec?.console.tone, shape: w.spec?.console.shape, buttons: w.spec?.console.buttons, retries: w.retries, seconds: w.seconds, tokens: w.tokens?.length }))(window.__bnw.worlds.at(-1)))`);
-    beat("world", { world: JSON.parse(w) });
-    console.log(`${WISHES[k]} → ${w}`);
+    await describe();
     await sleep(HOLD_WORLD);
-    if (k === 0) {
-      // one of the buttons the model just invented, pressed
-      const label = await ev(`${CON}.shadowRoot.querySelector(".act")?.textContent || ""`);
-      if (label) {
-        beat("lever", { label });
-        await ev(`${CON}.shadowRoot.querySelector(".act").click()`);
-        await sleep(HOLD_LEVER);
-        console.log(`  pressed "${label}"`);
-      }
-    }
+    if (k === 0) await pressLever();
+    if (k === 1) { if (!(await walkIntoGhost())) await pressLever(); }
   }
+  if (!(await takeDoor())) { beat("type", { wish: "a desert at noon, three black pyramids" }); await type("a desert at noon, three black pyramids"); beat("dream", {}); await waitDream(); await describe(); await sleep(HOLD_WORLD); }
   await sleep(HOLD_END);
   beat("end");
   await s.send("Page.stopScreencast");

@@ -235,6 +235,17 @@ export function keptScore(prior, spec) {
   return kept / n;
 }
 
+// The doors: do they lead somewhere? One point for each of: none repeats the
+// wish, none repeats another door, none repeats the title.
+export function doorSense(spec, wish) {
+  if (!spec?.next?.length) return 0;
+  const norm = (t) => String(t).toLowerCase().replace(/[^a-z ]/g, "").trim();
+  const w = norm(wish), title = norm(spec.title), doors = spec.next.map(norm);
+  const away = doors.filter((d) => d && d !== w && d !== title && !w.includes(d) && !d.includes(w)).length / doors.length;
+  const distinct = new Set(doors).size / doors.length;
+  return (away + distinct) / 2;
+}
+
 // Do the levers say what they do? For each button the model composed, does
 // its label contain a word that plainly belongs to the value it acts on: the
 // kind it adds or multiplies, the time, weather, ground, motion or font it
