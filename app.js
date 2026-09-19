@@ -225,7 +225,8 @@ function messagesFor(wish, strategy) {
 async function generate(engine, messages, wish, strategy, grammar = null, quiet = false, extra = {}) {
   const request = requestFor(state.modelId || MODEL, messages, extra, strategy);
   if (grammar) request.response_format = { type: "grammar", grammar };
-  if (!quiet) con.temperature = request.temperature;
+  // WebLLM reports probabilities after the sampling temperature and the ribbon undoes that; a server reporting raw ones needs no undoing
+  if (!quiet) con.temperature = engine.rawLogprobs ? 1 : request.temperature;
   let raw = "", n = 0, finish = null, lastPaint = 0;
   const tokens = []; // every token with its offsets and de-tempered alternatives, for the ghosts
   const t0 = performance.now();
@@ -235,7 +236,7 @@ async function generate(engine, messages, wish, strategy, grammar = null, quiet 
     if (choice?.delta?.content) raw += choice.delta.content;
     if (choice?.finish_reason) finish = choice.finish_reason;
     const lps = choice?.logprobs?.content;
-    if (lps) for (const lp of lps) { const d = quiet ? detemper(lp, request.temperature) : con.addToken(lp, raw.slice(0, raw.length - lp.token.length)); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; }
+    if (lps) for (const lp of lps) { const d = quiet ? detemper(lp, engine.rawLogprobs ? 1 : request.temperature) : con.addToken(lp, raw.slice(0, raw.length - lp.token.length)); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; }
     const now = performance.now();
     if (!quiet && now - lastPaint > 800) {
       lastPaint = now;
@@ -594,6 +595,7 @@ function remoteEngine(base, model) {
   let ctl = null;
   const eng = {
     model,
+    rawLogprobs: true,
     async hello() {
       try { const r = await fetch(base + "/models"); const j = await r.json(); return (j.data || []).map((m) => m.id); } catch { return []; }
     },

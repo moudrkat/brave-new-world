@@ -213,10 +213,19 @@ function compose() {
     if (b[i].kind === "ahead") fast.push([b[i].t + 1.0, b[i + 1].t - 0.6, RATE_DREAM]);
     if (b[i].kind === "world" && b[i + 1] && RATE_HOLD !== 1) fast.push([b[i].t + 1.4, b[i + 1].t - 0.2, RATE_HOLD]);
   }
+  // FILM_DROP=walk,ghost cuts whole beats out: from the tap to the end of the world it led to
+  for (const kind of (process.env.FILM_DROP || "").split(",").filter(Boolean)) {
+    const i = b.findIndex((x) => x.kind === kind);
+    if (i < 0) continue;
+    let j = i + 1; while (j < b.length && !["type", "door", "ahead", "lever", "walk", "ghost", "head", "end"].includes(b[j].kind)) j++;
+    fast.push([b[i].t - 0.2, b[j].t - 0.2, 0]);
+  }
   const rateAt = (t) => { for (const [a, z, r] of fast) if (t >= a && t < z) return r; return 1; };
   let list = "ffconcat version 1.0\n", total = 0;
   for (let i = 0; i < frames.length; i++) {
-    const dur = (i + 1 < frames.length ? frames[i + 1].t - frames[i].t : 1 / FPS) / rateAt(frames[i].t);
+    const rate = rateAt(frames[i].t);
+    if (rate === 0) continue; // dropped
+    const dur = (i + 1 < frames.length ? frames[i + 1].t - frames[i].t : 1 / FPS) / rate;
     if (dur <= 0) continue;
     list += `file '${frames[i].name.split("/").pop()}'\nduration ${dur.toFixed(4)}\n`;
     total += dur;
@@ -224,8 +233,9 @@ function compose() {
   list += `file '${frames.at(-1).name.split("/").pop()}'\n`;
   writeFileSync(out + "-frames/list.ffconcat", list);
   const vf = `fps=${FPS},scale=${OW}:${OH}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${OW}:${OH}:(ow-iw)/2:(oh-ih)/2:color=${PAPER},format=yuv420p`;
-  execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", out + "-frames/list.ffconcat", "-vf", vf, "-c:v", "libx264", "-profile:v", "high", "-level", "4.0", "-preset", "slow", "-crf", "19", "-movflags", "+faststart", "-an", out + ".mp4"], { stdio: "inherit" });
-  console.log(`${out}.mp4 · ${total.toFixed(1)} s (was ${(frames.at(-1).t - frames[0].t).toFixed(1)} s) · ` + execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration,size", "-of", "csv=p=0", out + ".mp4"]).toString().trim());
+  const target = (process.env.FILM_OUT || out) + ".mp4";
+  execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", out + "-frames/list.ffconcat", "-vf", vf, "-c:v", "libx264", "-profile:v", "high", "-level", "4.0", "-preset", "slow", "-crf", "19", "-movflags", "+faststart", "-an", target], { stdio: "inherit" });
+  console.log(`${target} · ${total.toFixed(1)} s (was ${(frames.at(-1).t - frames[0].t).toFixed(1)} s) · ` + execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration,size", "-of", "csv=p=0", target]).toString().trim());
 }
 
 if (RECOMPOSE) compose(); else await film();
