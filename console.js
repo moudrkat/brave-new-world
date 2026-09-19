@@ -91,6 +91,10 @@ const CSS = `
 .top .brand { color: var(--accent); white-space: nowrap; }
 .top .stats { cursor: pointer; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top .stats:empty { display: none; }
+.top .right { display: flex; gap: 12px; align-items: baseline; min-width: 0; }
+.link { background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--dim); font: inherit; letter-spacing: inherit; text-transform: inherit; padding: 0 0 1px; cursor: pointer; }
+.link:hover { color: var(--accent); border-color: var(--accent); }
+:host(:not([data-world])) .link { display: none; }
 
 /* ---- the insides: only while it thinks, and a moment after ---- */
 .inside { max-height: 110px; overflow: hidden; transition: max-height 0.5s ease, opacity 0.5s ease; margin-top: 6px; border-top: 1px solid var(--line); padding-top: 4px; }
@@ -220,7 +224,7 @@ const HTML = `
 <div class="panel">
   <div class="top">
     <span class="brand">brave new world</span>
-    <span id="stats" class="stats" title="what it was thinking"></span>
+    <span class="right"><span id="stats" class="stats" title="what it was thinking"></span><button id="share" class="link" type="button" title="the address bar holds this exact world: send it">link</button></span>
   </div>
   <div id="inside" class="inside closed">
     <canvas id="spark" class="spark" height="26"></canvas>
@@ -265,7 +269,7 @@ export class BnwConsole extends HTMLElement {
     this.probs = [];
     this.doubt = 0;
     this.dreaming = false;
-    this.worldActive = false;
+    this._worldActive = false;
     this.awake = false;
     this.temperature = 0.7;
     this.baseButton = "dream";
@@ -282,6 +286,7 @@ export class BnwConsole extends HTMLElement {
     });
     this.$("wake").addEventListener("click", () => this.dispatchEvent(new CustomEvent("wake")));
     this.$("stats").addEventListener("click", () => this.toggleInside());
+    this.$("share").addEventListener("click", () => this.dispatchEvent(new CustomEvent("share")));
 
     const ribbon = this.$("ribbon");
     ribbon.addEventListener("mouseover", (e) => this.showTip(e));
@@ -300,6 +305,9 @@ export class BnwConsole extends HTMLElement {
     addEventListener("resize", tell);
     tell();
   }
+
+  get worldActive() { return this._worldActive; }
+  set worldActive(v) { this._worldActive = v; if (v) this.dataset.world = "1"; else delete this.dataset.world; }
 
   /* ---- the design the model chose ---- */
 

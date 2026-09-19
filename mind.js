@@ -1,5 +1,5 @@
-import { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, ghostsFrom, cueHints, certaintyFrom } from "./world.js";
-export { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, ghostsFrom, cueHints, certaintyFrom };
+import { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom } from "./world.js";
+export { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom };
 
 // The user turn: the wish, and (for the tools path) what the words plainly say.
 export function userMessage(wish, strategy, { hints = true } = {}) {
@@ -201,7 +201,7 @@ export const PRIOR = {
   spec: { title: "A Quiet Island", time: "dusk", weather: "clear", sky: ["#2b1b4e", "#7a4f8c", "#c98a9a"], ground: "sea", ground_color: "#5e4b8b", ink: "#f6e9dc", accent: "#ffd9a0", font: "serif", text_place: "top", motion: "slow",
     elements: [{ kind: "sun", x: "center", y: "horizon", size: "large", color: "#ffb37a", count: 1 }, { kind: "lighthouse", x: "right", y: "horizon", size: "medium", color: "#f6e9dc", count: 1 }, { kind: "bird", x: "left", y: "high", size: "tiny", color: "#2b1b4e", count: 3 }, { kind: "boat", x: "far-left", y: "ground", size: "small", color: "#3a2a5e", count: 1 }],
     lines: ["The sea keeps its lavender secret.", "One lighthouse counts the evening slowly, and nobody asks it to hurry."],
-    console: { side: "bottom", tone: "glass", shape: "soft", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "night" }, { label: "some rain", action: "rain" }] },
+    console: { side: "bottom", tone: "glass", shape: "soft", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "set time night" }, { label: "some rain", action: "set weather rain" }] },
     next: ["the lighthouse keeper's room", "the same island at night", "a boat going out"] },
 };
 export const FOLLOWUPS = [
@@ -235,31 +235,30 @@ export function keptScore(prior, spec) {
   return kept / n;
 }
 
-// Do the buttons say what they do? For each button the model invented, does
-// its label contain a word that plainly belongs to the action it chose. A
-// lower bound: "sleep" for night does not count, and a poetic label can be
-// right without a keyword. Reported as such.
-const ACTION_WORDS = {
-  again: /again|once more|redo|repeat|another go|re-?dream|encore/i, surprise: /surprise|elsewhere|somewhere|random|another|new|wander|drift|else/i, undo: /undo|back|before|return|previous|unfold|rewind/i,
-  night: /night|dark|moon|sleep|stars|midnight|dusk|late/i, dawn: /dawn|morning|sunrise|wake|early|light/i, noon: /noon|midday|sun|day|bright|high/i, dusk: /dusk|evening|sunset|twilight|dim/i,
-  rain: /rain|storm|pour|wet|drizzle|shower/i, snow: /snow|winter|frost|white|cold|flake/i, stars: /star|night|sky|constellation|glitter/i, clear: /clear|calm|sun|still|quiet|clean|sky/i, fog: /fog|mist|haze|blur|veil/i,
-  calm: /calm|still|quiet|slow|rest|hush|freeze|pause/i, wild: /wild|storm|fast|restless|dance|shake|wind|alive/i, more: /more|another|add|again|fill|crowd|multiply|grow/i, less: /less|fewer|remove|take|quiet|empty|thin|clear/i, inside: /inside|within|mind|thought|see|look|show|open/i,
+// Do the levers say what they do? For each button the model composed, does
+// its label contain a word that plainly belongs to the value it acts on: the
+// kind it adds or multiplies, the time, weather, ground, motion or font it
+// sets, or the verb itself. A lower bound: "sleep" for night does not count
+// unless listed, and a poetic label can be right without a keyword.
+const VALUE_WORDS = {
+  again: /again|once more|redo|repeat|another go|re-?dream|encore|replay/i, elsewhere: /surprise|elsewhere|somewhere|random|another|new|wander|drift|else|away|leave|go/i, undo: /undo|back|before|return|previous|unfold|rewind|last/i, inside: /inside|within|mind|thought|see|look|show|open|reveal/i,
+  night: /night|dark|moon|sleep|stars|midnight|late|black/i, dawn: /dawn|morning|sunrise|wake|early|first light/i, noon: /noon|midday|sun|day|bright|high|light/i, dusk: /dusk|evening|sunset|twilight|dim|gold/i,
+  rain: /rain|storm|pour|wet|drizzle|shower|weep/i, snow: /snow|winter|frost|white|cold|flake/i, stars: /star|night|sky|constellation|glitter|sparkle/i, clear: /clear|calm|sun|still|quiet|clean|sky|open/i, fog: /fog|mist|haze|blur|veil|smoke/i, embers: /ember|fire|spark|burn|ash|glow/i, petals: /petal|flower|blossom|bloom|spring|fall/i, fireflies: /firefl|light|glow|lantern|spark/i, bubbles: /bubble|breath|float|water|sea/i,
+  still: /still|calm|quiet|rest|hush|freeze|pause|stop|sleep/i, slow: /slow|gentle|ease|drift|soft/i, restless: /wild|storm|fast|restless|dance|shake|wind|alive|wake|rush/i,
+  serif: /serif|book|letter|print|old/i, mono: /mono|type|machine|code|terminal|typewriter/i, display: /display|grand|big|bold|title/i, hand: /hand|write|ink|scribble|note/i,
+  more: /more|another|add|again|fill|crowd|multiply|grow|double/i, fewer: /less|fewer|remove|take|quiet|empty|thin|clear|one|alone/i, add: /add|bring|invite|summon|let|give|another/i, remove: /remove|take|away|banish|no more|without|gone|lose/i,
 };
-// The doors: do they lead somewhere? One point for each of: none repeats the
-// wish, none repeats another door, none repeats the title.
-export function doorSense(spec, wish) {
-  if (!spec?.next?.length) return 0;
-  const norm = (t) => String(t).toLowerCase().replace(/[^a-z ]/g, "").trim();
-  const w = norm(wish), title = norm(spec.title), doors = spec.next.map(norm);
-  const away = doors.filter((d) => d && d !== w && d !== title && !w.includes(d) && !d.includes(w)).length / doors.length;
-  const distinct = new Set(doors).size / doors.length;
-  return (away + distinct) / 2;
-}
-
 export function buttonSense(spec) {
   if (!spec?.console?.buttons?.length) return null;
-  const b = spec.console.buttons;
-  return b.filter((x) => ACTION_WORDS[x.action]?.test(x.label)).length / b.length;
+  const ok = spec.console.buttons.filter((b) => {
+    const a = parseAction(b.action);
+    if (!a) return false;
+    const label = b.label.toLowerCase();
+    if (a.kind && (label.includes(a.kind) || label.includes(a.kind.replace(/y$/, "ie")) || (a.kind === "person" && /people|someone|soul/.test(label)))) return true;
+    const key = a.verb === "set" ? a.value : a.kind ? a.verb : a.verb;
+    return !!VALUE_WORDS[key]?.test(label) || (a.verb === "set" && VALUE_WORDS[a.field === "ground" ? null : ""]?.test(label)) || (a.field === "ground" && label.includes(a.value));
+  });
+  return ok.length / spec.console.buttons.length;
 }
 
 const STOP = new Set("a an the of in on at and or with one all under inside made full everything".split(" "));

@@ -6,7 +6,7 @@ const PARAMS = new URLSearchParams(location.search);
 // ?set=wishes (default) | ambiguous | followups. Follow-ups put PRIOR in the conversation first.
 const SET = SETS[PARAMS.get("set")] ? PARAMS.get("set") : "wishes";
 // ?ex=full | bare | 0 picks the worked example; without it, the eval runs what the app ships
-const EXAMPLE = PARAMS.get("ex") == null ? EXAMPLE_MODE : PARAMS.get("ex") === "0" ? false : PARAMS.get("ex") === "bare" ? "bare" : true;
+const EXAMPLE = PARAMS.get("ex") == null ? EXAMPLE_MODE : PARAMS.get("ex") === "0" ? false : ["bare", "prose"].includes(PARAMS.get("ex")) ? PARAMS.get("ex") : true;
 const LIST = SETS[SET];
 const results = []; // { model, label, vram, loadSec, runs: [{ wish, raw, html, tokens, tps, finish, score }] }
 let engine = null;

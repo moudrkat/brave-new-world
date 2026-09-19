@@ -40,7 +40,7 @@ for (const wish of wishes) {
   await evaluate(`window.__bnw.current = 0; (() => { const c = document.querySelector("bnw-console"); c.wish = ${JSON.stringify(wish)}; c.submit(); })()`);
   const before = await evaluate(`window.__bnw.worlds.length`);
   for (let i = 0; i < 120; i++) { await sleep(1000); if ((await evaluate(`window.__bnw.worlds.length`)) > before - 1 && !(await evaluate(`window.__bnw.dreaming`)) && (await evaluate(`window.__bnw.worlds.length`)) > before) break; }
-  const w = await evaluate(`JSON.stringify((() => { const w = window.__bnw.worlds.at(-1); return { wish: w.wish, spec: w.spec, ghosts: w.ghosts, certainty: w.certainty, retries: w.retries, issues: w.issues.map(i => i.kind), seconds: w.seconds, model: w.model, date: w.date, tokens: w.tokens.map(t => ({ token: t.token, p: +t.p.toFixed(3), alts: t.alts.slice(0, 5).map(a => ({ token: a.token, p: +a.p.toFixed(3) })) })) }; })())`);
+  const w = await evaluate(`JSON.stringify((() => { const w = window.__bnw.worlds.at(-1); return { wish: w.wish, spec: w.spec, ghosts: w.ghosts, certainty: w.certainty, raw: w.raw, retries: w.retries, issues: w.issues.map(i => i.kind), seconds: w.seconds, model: w.model, date: w.date, tokens: w.tokens.map(t => ({ token: t.token, p: +t.p.toFixed(3), alts: t.alts.slice(0, 5).map(a => ({ token: a.token, p: +a.p.toFixed(3) })) })) }; })())`);
   const d = JSON.parse(w);
   console.log(`${wish} → "${d.spec?.title}" · ${d.tokens.length} tokens · ${d.seconds?.toFixed(1)} s · retries ${d.retries} · console ${d.spec?.console.side}/${d.spec?.console.tone}/${d.spec?.console.shape} · buttons ${d.spec?.console.buttons.map((b) => b.label + "→" + b.action).join(", ")}`);
   if (!d.spec) { console.log("  no spec, skipped"); continue; }

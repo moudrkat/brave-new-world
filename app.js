@@ -1,4 +1,4 @@
-import { MODELS, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction } from "./mind.js";
+import { MODELS, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec } from "./mind.js";
 import { DEMOS } from "./demos.js";
 import "./console.js";
 
@@ -20,7 +20,7 @@ const state = {
   modelId: null,
   waking: null, // the promise, so a second press joins the first download
   dreaming: false,
-  worlds: [], // { wish, html, spec, issues, retries, tokens, raw }
+  worlds: [], // { wish, html, spec, issues, retries, tokens, raw, messages, ghosts, certainty }
   current: -1,
   lastRaw: "",
 };
@@ -97,6 +97,7 @@ function wake() {
 
 let applied = "";
 let designOf = null;
+const designFor = (spec) => (spec ? { ...spec.console, next: spec.next } : null);
 // One world dissolves into the next. The browser's view transition crossfades
 // the page and moves the console from wherever it was to wherever the model
 // put it now; a browser without the API just swaps.
@@ -192,8 +193,9 @@ function messagesFor(wish, strategy) {
   return msgs;
 }
 
-async function generate(engine, messages, wish, strategy) {
+async function generate(engine, messages, wish, strategy, grammar = null) {
   const request = requestFor(state.modelId || MODEL, messages, {}, strategy);
+  if (grammar) request.response_format = { type: "grammar", grammar };
   con.temperature = request.temperature;
   let raw = "", n = 0, finish = null, lastPaint = 0;
   const tokens = []; // every token with its offsets and de-tempered alternatives, for the ghosts
@@ -216,19 +218,22 @@ async function generate(engine, messages, wish, strategy) {
   return { raw, finish, n, tokens, seconds: (performance.now() - t0) / 1000 };
 }
 
-async function dream(wish) {
+// fork: { messages, raw, ghost } walks the model down its own road to the
+// ghost and makes it take the other turning; the rest is dreamt again.
+async function dream(wish, fork = null) {
   const engine = await wake();
   state.dreaming = true;
   con.setDreaming(true);
-  con.setStatus("dreaming · " + wish);
+  con.setStatus(fork ? `walking into the ghost of a ${fork.ghost.kind} · the same road up to the fork, then the other way` : "dreaming · " + wish);
 
   const strategy = STRATEGY;
-  let messages = messagesFor(wish, strategy);
+  let messages = fork ? fork.messages : messagesFor(wish, strategy);
+  const grammar = fork ? forkGrammar(fork.raw, fork.ghost) : null;
   let report = null, retries = 0, raw = "", t0 = performance.now(), out = null;
   const attempts = [];
   try {
     for (;;) {
-      out = await generate(engine, messages, wish, strategy);
+      out = await generate(engine, messages, wish, strategy, grammar);
       raw = out.raw;
       report = dreamToPage(raw, wish, out.finish, strategy, out.tokens);
       attempts.push({ raw, finish: out.finish, tokens: out.n, seconds: out.seconds, issues: report.issues });
@@ -239,7 +244,7 @@ async function dream(wish) {
         (retries ? ` · retry ${retries}` : ""),
         report.fatal
       );
-      if (!report.fatal || retries >= MAX_RETRIES || !state.dreaming) break;
+      if (!report.fatal || retries >= MAX_RETRIES || !state.dreaming || fork) break;
       retries++;
       con.setStatus(`the page came back broken (${bad.join(", ")}), asking again · ${retries}/${MAX_RETRIES}`);
       messages = [...messages, { role: "assistant", content: raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }];
@@ -250,28 +255,37 @@ async function dream(wish) {
     con.setStatus("the dream broke: " + (err?.message || err), true);
   }
 
-  const html = report ? report.html : extractHtml(raw, wish, true);
+  let html = report ? report.html : extractHtml(raw, wish, true);
+  let ghosts = report?.ghosts || [];
+  if (fork && report?.spec) {
+    // in the forked world, the thing it chose the first time is the ghost
+    const g = fork.ghost;
+    ghosts = [...ghosts.filter((x) => x.index !== g.index), { index: g.index, kind: g.chosen, p: g.chosenP, chosen: g.kind, chosenP: g.p, at: g.at }];
+    html = renderWorld(report.spec, { ghosts, certainty: report.certainty });
+  }
   state.lastRaw = raw;
-  designOf = report?.spec ? { ...report.spec.console, next: report.spec.next } : null;
+  designOf = designFor(report?.spec);
   applyWorld(html);
   // the world is as restless as the model was unsure
   if (report?.spec) document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[report.spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
-  if (report?.ghosts?.length) con.setHarness(con.harnessText + ` · ${report.ghosts.length} ghost${report.ghosts.length > 1 ? "s" : ""} of what it almost placed`);
-  state.worlds.push({ wish, html, issues: report?.issues || [], retries, attempts, strategy, spec: report?.spec || null, ghosts: report?.ghosts || [], certainty: report?.certainty || null,
-    raw, tokens: out?.tokens || [], seconds: out?.seconds || 0, model: state.modelId, date: new Date().toISOString() });
+  if (ghosts.length) con.setHarness(con.harnessText + ` · ${ghosts.length} ghost${ghosts.length > 1 ? "s" : ""} of what it almost placed · tap one to walk into it`);
+  state.worlds.push({ wish: fork ? `${wish} · a ${fork.ghost.kind} instead` : wish, html, issues: report?.issues || [], retries, attempts, strategy, spec: report?.spec || null, ghosts, certainty: report?.certainty || null,
+    raw, tokens: out?.tokens || [], messages: fork ? fork.messages : messages.slice(0, 3), seconds: out?.seconds || 0, model: state.modelId, date: new Date().toISOString() });
   state.current = state.worlds.length - 1;
   con.renderHistory(state.worlds, state.current, pick);
   state.dreaming = false;
   con.setDreaming(false);
-  con.setStatus(`dreamt in ${((performance.now() - t0) / 1000).toFixed(1)} s` + (retries ? ` after ${retries} ${retries === 1 ? "retry" : "retries"}` : "") + " · the buttons are its idea");
+  con.setStatus(`dreamt in ${((performance.now() - t0) / 1000).toFixed(1)} s` + (retries ? ` after ${retries} ${retries === 1 ? "retry" : "retries"}` : "") + (fork ? " · the road not taken" : " · the levers and the doors are its idea · tap a thing to walk to it"));
+  remember(state.worlds[state.current]);
   con.focus();
 }
 
 function pick(i) {
   state.current = i;
-  designOf = state.worlds[i].spec ? { ...state.worlds[i].spec.console, next: state.worlds[i].spec.next } : null;
+  designOf = designFor(state.worlds[i].spec);
   applyWorld(state.worlds[i].html);
   con.renderHistory(state.worlds, state.current, pick);
+  remember(state.worlds[i]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -279,13 +293,12 @@ function pick(i) {
 /* ------------------------------------------------------------------ */
 
 let replaying = 0;
-async function playDemo(i) {
-  const d = DEMOS[i];
-  if (!d || state.dreaming) return;
+async function replay(d, { label, status }) {
+  if (state.dreaming) return;
   const token = ++replaying;
-  const spec = d.spec;
+  const spec = normalizeSpec(d.spec);
   const html = renderWorld(spec, { ghosts: d.ghosts || [], certainty: d.certainty || null });
-  designOf = { ...spec.console, next: spec.next };
+  designOf = designFor(spec);
   con.setDreaming(true);
   con.setStatus("remembering · " + d.wish);
   // the tokens it wrote that day, at their real certainties, faster than it wrote them
@@ -301,42 +314,137 @@ async function playDemo(i) {
   con.updateStats(t0, toks.length, "replayed");
   applyWorld(html);
   document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
-  con.setHarness(`a dream it had on ${(d.date || "").slice(0, 10)} · ${d.model ? d.model.replace(/-MLC$/, "") : "the same mind"} · ${toks.length} tokens in ${(d.seconds || 0).toFixed(1)} s` + (d.ghosts?.length ? ` · ${d.ghosts.length} ghost${d.ghosts.length > 1 ? "s" : ""}` : ""));
-  state.worlds.push({ wish: d.wish, html, spec, issues: [], retries: 0, strategy: "spec", ghosts: d.ghosts || [], certainty: d.certainty || null, demo: true });
+  con.setHarness(label + (d.ghosts?.length ? ` · ${d.ghosts.length} ghost${d.ghosts.length > 1 ? "s" : ""} · tap one to walk into it` : ""));
+  state.worlds.push({ wish: d.wish, html, spec, issues: [], retries: 0, strategy: "spec", ghosts: d.ghosts || [], certainty: d.certainty || null, raw: d.raw || null, tokens: toks, messages: d.raw ? [{ role: "system", content: systemFor("spec") }, { role: "user", content: userMessage(d.wish, "spec") }] : null, demo: true, model: d.model, date: d.date, seconds: d.seconds });
   state.current = state.worlds.length - 1;
   con.renderHistory(state.worlds, state.current, pick);
   state.dreaming = false;
   con.setDreaming(false);
-  con.setStatus("a world it dreamt before · its levers still work · wake it to dream your own");
+  con.setStatus(status);
+  remember(state.worlds[state.current]);
 }
+const playDemo = (i) => DEMOS[i] && replay(DEMOS[i], {
+  label: `a dream it had on ${(DEMOS[i].date || "").slice(0, 10)} · ${DEMOS[i].model ? DEMOS[i].model.replace(/-MLC$/, "") : "the same mind"} · ${(DEMOS[i].tokens || []).length} tokens in ${(DEMOS[i].seconds || 0).toFixed(1)} s`,
+  status: "a world it dreamt before · its levers work · wake it to walk on",
+});
 con.setDemos(DEMOS, playDemo);
 
 /* ------------------------------------------------------------------ */
-/* the buttons the model invented                                      */
+/* a world in the address bar: send someone the exact dream            */
 /* ------------------------------------------------------------------ */
 
-// It names the button; the engine does the thing. Some ask the model again,
-// the rest are levers on the world's spec, so they work on a remembered dream
-// too, without a model.
+const b64 = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+async function squeeze(data, dir) {
+  const S = dir === "in" ? CompressionStream : DecompressionStream;
+  if (typeof S === "undefined") return null;
+  const stream = new Blob([data]).stream().pipeThrough(new S("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+// what travels: the spec, the model's own text and each token's certainty
+// (a byte each), the ghosts, the words' certainty; not the alternatives
+async function encodeWorld(w) {
+  const toks = w.tokens || [];
+  const payload = { v: 1, w: w.wish, sp: w.spec, g: w.ghosts || [], c: w.certainty || null, m: w.model || null, d: w.date || null, s: w.seconds || 0,
+    r: w.raw || null, ts: toks.map((t) => t.start ?? 0), tp: toks.map((t) => Math.round(t.p * 255)) };
+  const bytes = await squeeze(JSON.stringify(payload), "in");
+  return bytes ? b64(bytes) : null;
+}
+async function decodeWorld(hash) {
+  try {
+    const bytes = await squeeze(unb64(hash), "out");
+    const p = JSON.parse(new TextDecoder().decode(bytes));
+    if (p.v !== 1 || !p.sp) return null;
+    let tokens = [];
+    if (p.r && p.ts?.length) tokens = p.ts.map((s, i) => ({ token: p.r.slice(s, p.ts[i + 1] ?? p.r.length), p: (p.tp?.[i] ?? 255) / 255, start: s }));
+    return { wish: p.w, spec: p.sp, ghosts: p.g, certainty: p.c, model: p.m, date: p.d, seconds: p.s, raw: p.r, tokens };
+  } catch { return null; }
+}
+let rememberSeq = 0;
+async function remember(w) {
+  const seq = ++rememberSeq;
+  if (!w || w.zero || !w.spec) { history.replaceState(null, "", location.pathname + location.search); return; }
+  const h = await encodeWorld(w);
+  if (seq === rememberSeq && h) history.replaceState(null, "", location.pathname + location.search + "#w=" + h);
+}
+con.addEventListener("share", async () => {
+  const w = state.worlds[state.current];
+  if (!w || w.zero) return con.setStatus("nothing to send yet: wish first");
+  const url = location.href;
+  try {
+    if (navigator.share && matchMedia("(pointer: coarse)").matches) await navigator.share({ title: "Brave New World · " + w.wish, url });
+    else { await navigator.clipboard.writeText(url); con.setStatus("the link to this exact world is on your clipboard · it opens without a download"); }
+  } catch { con.setStatus("copy the address bar: it is the world"); }
+});
+
+/* ------------------------------------------------------------------ */
+/* the buttons the model invented, and walking                         */
+/* ------------------------------------------------------------------ */
+
+// It names the button and composes what it does; the engine does the thing.
+// Some ask the model again, the rest are levers on the world's spec, so they
+// work on a remembered dream too, without a model.
 const SURPRISES = ["a greenhouse on the moon", "a bathhouse for dragons", "the last train before the flood", "a lighthouse in a wheat field", "a violin shop at closing time", "a city where it rains upward", "an orchard on a glacier", "the waiting room of the sea"];
 function act(action) {
   const cur = state.worlds[state.current];
   if (state.dreaming) return;
-  if (action === "inside") return con.toggleInside();
-  if (action === "undo") return state.current > 0 ? pick(state.current - 1) : con.setStatus("nothing before this");
-  if (action === "again") { con.wish = cur?.zero ? SURPRISES[0] : cur.wish; return con.submit(); }
-  if (action === "surprise") { con.wish = SURPRISES[Math.floor(Math.random() * SURPRISES.length)]; return con.submit(); }
+  const a = parseAction(action);
+  if (!a) return con.setStatus("this lever is not connected to anything: " + action);
+  if (a.verb === "inside") return con.toggleInside();
+  if (a.verb === "undo") return state.current > 0 ? pick(state.current - 1) : con.setStatus("nothing before this");
+  if (a.verb === "again") { con.wish = cur?.zero ? SURPRISES[0] : cur.wish; return con.submit(); }
+  if (a.verb === "elsewhere") { con.wish = SURPRISES[Math.floor(Math.random() * SURPRISES.length)]; return con.submit(); }
   if (!cur?.spec) return con.setStatus("this world has no such lever");
-  const spec = applyAction(cur.spec, action);
+  const spec = applyAction(cur.spec, a);
   const html = renderWorld(spec, { ghosts: cur.ghosts || [], certainty: cur.certainty || null });
   state.worlds.push({ ...cur, spec, html, wish: cur.wish + " · " + action, zero: false, demo: false });
   state.current = state.worlds.length - 1;
-  designOf = { ...spec.console, next: spec.next };
+  designOf = designFor(spec);
   applyWorld(html);
   con.renderHistory(state.worlds, state.current, pick);
-  con.setStatus(action + " · the model named this button, the engine pulled the lever");
+  con.setStatus(action + " · the model named this lever and composed what it does; the engine pulled it");
+  remember(state.worlds[state.current]);
 }
 con.addEventListener("action", (e) => act(e.detail));
+
+// Walking: a tap on a thing in the scene is a wish to go there; a tap on a
+// ghost regenerates the world from that very token with the other choice.
+function walkTo(kind) {
+  if (state.dreaming) return;
+  con.wish = `walk to the ${kind}`;
+  con.submit();
+}
+function walkInto(index, kind) {
+  const cur = state.worlds[state.current];
+  if (state.dreaming || !cur) return;
+  const ghost = (cur.ghosts || []).find((g) => g.index === index && g.kind === kind);
+  if (!ghost || !cur.raw || ghost.at == null) return con.setStatus("this ghost has no road back to it");
+  const messages = cur.messages || [{ role: "system", content: systemFor("spec") }, { role: "user", content: userMessage(cur.wish, "spec") }];
+  dream(cur.wish.replace(/ · .*$/, ""), { messages, raw: cur.raw, ghost }).catch((err) => { console.error(err); con.setStatus("the fork broke: " + (err?.message || err), true); state.dreaming = false; con.setDreaming(false); });
+}
+document.addEventListener("click", (e) => {
+  if (e.composedPath().includes(con)) return;
+  const g = e.target.closest?.(".el.ghost");
+  if (g) return walkInto(+g.dataset.ghost, g.dataset.kind);
+  const el = e.target.closest?.(".el");
+  if (el?.dataset.kind) return walkTo(el.dataset.kind);
+});
+
+// Depth: the scene shifts a little with the pointer or the phone's tilt, far
+// things less than near ones (--dz per element, set by the painter).
+let px = 0, py = 0, tx = 0, ty = 0, parallaxOn = false;
+function parallax() {
+  px += (tx - px) * 0.08; py += (ty - py) * 0.08;
+  document.documentElement.style.setProperty("--px", px.toFixed(3));
+  document.documentElement.style.setProperty("--py", py.toFixed(3));
+  if (Math.abs(tx - px) > 0.002 || Math.abs(ty - py) > 0.002) requestAnimationFrame(parallax); else parallaxOn = false;
+}
+function aim(x, y) { tx = Math.max(-1, Math.min(1, x)); ty = Math.max(-1, Math.min(1, y)); if (!parallaxOn) { parallaxOn = true; requestAnimationFrame(parallax); } }
+if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") aim((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1); }, { passive: true });
+  addEventListener("touchmove", (e) => { const t = e.touches[0]; if (t && !e.composedPath().includes(con)) aim((t.clientX / innerWidth) * 2 - 1, (t.clientY / innerHeight) * 2 - 1); }, { passive: true });
+  addEventListener("deviceorientation", (e) => { if (e.gamma != null && matchMedia("(pointer: coarse)").matches) aim(e.gamma / 30, (e.beta - 45) / 40); }, { passive: true });
+}
 
 con.addEventListener("wake", () => wake().catch(() => {}));
 con.addEventListener("wish", (e) => {
@@ -364,9 +472,10 @@ function mockEngine() {
   const specDoc = JSON.stringify({ title: "A Quiet Island", time: "dusk", weather: "stars", sky: ["#2b1b4e", "#7a4f8c", "#c98a9a"], ground: "sea", ground_color: "#5e4b8b", ink: "#f6e9dc", accent: "#ffd9a0", font: "serif", text_place: "top", motion: "slow",
     elements: [{ kind: "sun", x: "center", y: "horizon", size: "large", color: "#ffb37a", count: 1 }, { kind: "lighthouse", x: "right", y: "horizon", size: "medium", color: "#f6e9dc", count: 1 }, { kind: "bird", x: "left", y: "high", size: "tiny", color: "#2b1b4e", count: 5 }, { kind: "boat", x: "far-left", y: "ground", size: "small", color: "#3a2a5e", count: 1 }],
     lines: ["The sea keeps its lavender secret.", "One lighthouse counts the evening slowly, and nobody asks it to hurry."],
-    console: { side: ["bottom", "top", "left", "right"][Math.floor(Math.random() * 4)], tone: "glass", shape: "pill", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "night" }, { label: "some rain", action: "rain" }, { label: "elsewhere", action: "surprise" }] }, next: ["the lighthouse keeper's room", "the same island at night", "a boat going out"] });
+    console: { side: ["bottom", "top", "left", "right"][Math.floor(Math.random() * 4)], tone: "glass", shape: "pill", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "set time night" }, { label: "some rain", action: "set weather rain" }, { label: "more birds", action: "more bird" }] }, next: ["the lighthouse keeper's room", "the same island at night", "a boat going out"] });
   const doc = `<!DOCTYPE html><html><head><title>A Quiet Island</title><style>html,body{margin:0;height:100%}body{background:linear-gradient(180deg,#2b1b4e,#c98a9a);color:#f6e9dc;font-family:Georgia,serif}h1{position:absolute;top:12vh;width:100%;text-align:center;font-weight:300}</style></head><body><h1>A Quiet Island</h1><p>The sea keeps its lavender secret.</p></body></html>`;
   const words = ["the", "a", "sea", "light", "dusk", "quiet", "#", "div", "px", "color"];
+  const kinds = ["moon", "star", "boat", "whale"];
   let stop = false;
   return {
     interruptGenerate() { stop = true; },
@@ -374,7 +483,12 @@ function mockEngine() {
     async reload() {},
     chat: { completions: { async *create(req) {
       stop = false;
-      const pieces = (req?.response_format?.type === "grammar" ? specDoc : doc).match(/\s+|[A-Za-z]+|[^\sA-Za-z]/g);
+      let text = req?.response_format?.type === "grammar" ? specDoc : doc;
+      // a forked grammar begins with the road already walked: honour its literal prefix
+      const g = req?.response_format?.grammar || "";
+      const m = g.match(/^root ::= "((?:[^"\\]|\\.)*)" "\\\\"" elrest/);
+      if (m) { const forced = JSON.parse('"' + m[1] + '"'); const k = forced.lastIndexOf('"kind":"'); const cut = specDoc.indexOf('"', specDoc.split('"kind":"').slice(0, forced.slice(0, k).split('"kind":"').length + 1).join('"kind":"').length); text = forced + specDoc.slice(cut); }
+      const pieces = text.match(/\s+|[A-Za-z]+|[^\sA-Za-z]/g);
       for (const piece of pieces) {
         if (stop) break;
         await pause(18);
@@ -382,7 +496,7 @@ function mockEngine() {
         const lp = Math.log(p);
         const alts = [{ token: piece, logprob: lp }];
         let rest = 1 - p;
-        for (let i = 0; i < 4; i++) { const q = rest * Math.random() * 0.7; rest -= q; alts.push({ token: words[(Math.random() * words.length) | 0], logprob: Math.log(Math.max(q, 1e-6)) }); }
+        for (let i = 0; i < 4; i++) { const q = rest * Math.random() * 0.7; rest -= q; alts.push({ token: piece === "sun" || piece === "lighthouse" ? kinds[i] : words[(Math.random() * words.length) | 0], logprob: Math.log(Math.max(q, 1e-6)) }); }
         yield { choices: [{ delta: { content: piece }, logprobs: { content: [{ token: piece, logprob: lp, top_logprobs: alts }] } }] };
       }
       yield { choices: [{ delta: {}, finish_reason: "stop" }] };
@@ -397,6 +511,10 @@ state.current = 0;
 con.renderHistory(state.worlds, 0, pick);
 con.setAwake(false, MOCK ? "dry run · no download" : navigator.gpu ? "300 MB once, then nothing leaves your device" : "needs WebGPU: Chrome, Edge or Safari 26 · the dreams below work here");
 con.setStatus(MOCK ? "asleep · dry run" : "asleep · nothing downloaded yet");
-if (PARAMS.get("demo") != null && DEMOS[+PARAMS.get("demo")]) playDemo(+PARAMS.get("demo"));
-else if (PARAMS.get("wish")) { con.wish = PARAMS.get("wish"); con.submit(); }
-else con.focus();
+(async () => {
+  const sent = location.hash.startsWith("#w=") ? await decodeWorld(location.hash.slice(3)) : null;
+  if (sent) return replay(sent, { label: `a world someone sent you · dreamt on ${(sent.date || "").slice(0, 10)} · ${sent.tokens.length} tokens in ${(sent.seconds || 0).toFixed(1)} s`, status: "someone sent you this world · its levers work · wake the mind to walk on" });
+  if (PARAMS.get("demo") != null && DEMOS[+PARAMS.get("demo")]) playDemo(+PARAMS.get("demo"));
+  else if (PARAMS.get("wish")) { con.wish = PARAMS.get("wish"); con.submit(); }
+  else con.focus();
+})();

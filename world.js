@@ -27,7 +27,29 @@ export const TONES = ["dark", "light", "glass", "paper", "neon"];
 export const CON_SHAPES = ["soft", "sharp", "pill"];
 export const WIDTHS = ["narrow", "wide", "full"];
 // What a button the model invents can actually do. It names the button; the engine does the thing.
-export const ACTIONS = ["again", "surprise", "undo", "night", "dawn", "noon", "dusk", "rain", "snow", "stars", "clear", "fog", "calm", "wild", "more", "less", "inside"];
+// A lever's action is composed, not picked: a verb and, for most verbs, a
+// value from the vocabulary. Every combination is legal by construction and
+// applyAction() knows them all; whether "hush" really sets the motion still is
+// the model's design decision, and the eval scores it.
+export const VERBS = ["set time", "set weather", "set ground", "set motion", "set font", "add", "remove", "more", "fewer", "undo", "again", "elsewhere", "inside"];
+export const ACTIONS = VERBS; // the verbs alone, for prose and the schema
+const OLD_ACTIONS = { night: "set time night", dawn: "set time dawn", noon: "set time noon", dusk: "set time dusk", rain: "set weather rain", snow: "set weather snow", stars: "set weather stars", clear: "set weather clear", fog: "set weather fog", calm: "set motion still", wild: "set motion restless", surprise: "elsewhere", more: "more", less: "fewer" };
+export function parseAction(str) {
+  let t = String(str || "").trim().toLowerCase();
+  if (OLD_ACTIONS[t]) t = OLD_ACTIONS[t];
+  let m;
+  if ((m = t.match(/^set (time|weather|ground|motion|font) (\S+)$/))) {
+    const list = { time: TIMES, weather: WEATHERS, ground: GROUNDS, motion: MOTIONS, font: FONTS }[m[1]];
+    return list.includes(m[2]) ? { verb: "set", field: m[1], value: m[2] } : null;
+  }
+  if ((m = t.match(/^(add|remove|more|fewer)(?: (\S+))?$/))) {
+    if (!m[2]) return m[1] === "more" || m[1] === "fewer" ? { verb: m[1], kind: null } : null;
+    return KINDS.includes(m[2]) ? { verb: m[1], kind: m[2] } : null;
+  }
+  if (["undo", "again", "elsewhere", "inside"].includes(t)) return { verb: t };
+  return null;
+}
+export const actionText = (a) => (a.verb === "set" ? `set ${a.field} ${a.value}` : a.kind ? `${a.verb} ${a.kind}` : a.verb);
 
 const COLOR = { type: "string", pattern: "^#[0-9a-f]{6}$", minLength: 7, maxLength: 7 };
 
@@ -67,7 +89,7 @@ export const WORLD_SCHEMA = {
       properties: {
         side: { type: "string", enum: SIDES }, tone: { type: "string", enum: TONES }, shape: { type: "string", enum: CON_SHAPES }, width: { type: "string", enum: WIDTHS },
         prompt: { type: "string", maxLength: 60 }, button: { type: "string", maxLength: 18 },
-        buttons: { type: "array", minItems: 1, maxItems: 3, items: { type: "object", properties: { label: { type: "string", maxLength: 18 }, action: { type: "string", enum: ACTIONS } }, required: ["label", "action"] } },
+        buttons: { type: "array", minItems: 1, maxItems: 3, items: { type: "object", properties: { label: { type: "string", maxLength: 18 }, action: { type: "string", description: "set time|weather|ground|motion|font <value>, add|remove|more|fewer <kind>, undo, again, elsewhere, inside" } }, required: ["label", "action"] } },
       },
       required: ["side", "tone", "shape", "width", "prompt", "button", "buttons"],
     },
@@ -79,6 +101,7 @@ export const WORLD_SCHEMA = {
 // Written by hand so that the format is exactly JSON.stringify's: no optional
 // whitespace anywhere, so a small model cannot spend its budget on newlines.
 const enumRule = (list) => list.map((v) => `"\\"${v}\\""`).join(" | ");
+const bareRule = (list) => list.map((v) => `"${v}"`).join(" | ");
 export const WORLD_GRAMMAR = `
 root ::= "{\\"title\\":" title ",\\"time\\":" time ",\\"weather\\":" weather ",\\"sky\\":[" color "," color ("," color)? "],\\"ground\\":" ground ",\\"ground_color\\":" color ",\\"ink\\":" color ",\\"accent\\":" color ",\\"font\\":" font ",\\"text_place\\":" place ",\\"motion\\":" motion ",\\"elements\\":[" el "," el ("," el)? ("," el)? ("," el)? ("," el)? ("," el)? "],\\"lines\\":[" line "," line ("," line)? "],\\"console\\":{\\"side\\":" side ",\\"tone\\":" tone ",\\"shape\\":" shape ",\\"width\\":" width ",\\"prompt\\":" short ",\\"button\\":" short ",\\"buttons\\":[" btn ("," btn)? ("," btn)? "]},\\"next\\":[" door ("," door)? ("," door)? "]}"
 el ::= "{\\"kind\\":" kind ",\\"x\\":" xs ",\\"y\\":" ys ",\\"size\\":" size ",\\"color\\":" color ",\\"count\\":" count "}"
@@ -102,12 +125,29 @@ side ::= ${enumRule(SIDES)}
 tone ::= ${enumRule(TONES)}
 shape ::= ${enumRule(CON_SHAPES)}
 width ::= ${enumRule(WIDTHS)}
-short ::= "\\"" tchar{3,56} "\\""
+short ::= "\\"" alpha pchar{2,55} "\\""
+alpha ::= [a-zA-Z]
+pchar ::= [a-zA-Z0-9 .,'!?&-]
 btn ::= "{\\"label\\":" label ",\\"action\\":" action "}"
-label ::= "\\"" tchar{3,24} "\\""
-door ::= "\\"" tchar{4,40} "\\""
-action ::= ${enumRule(ACTIONS)}
+label ::= "\\"" alpha pchar{2,23} "\\""
+door ::= "\\"" alpha pchar{3,39} "\\""
+action ::= "\\"" verb "\\""
+verb ::= "set time " (${bareRule(TIMES)}) | "set weather " (${bareRule(WEATHERS)}) | "set ground " (${bareRule(GROUNDS)}) | "set motion " (${bareRule(MOTIONS)}) | "set font " (${bareRule(FONTS)}) | "add " kindw | "remove " kindw | "more " kindw | "fewer " kindw | "undo" | "again" | "elsewhere" | "inside"
+kindw ::= ${bareRule(KINDS)}
 `;
+
+// The road not taken, made walkable: a grammar whose root is the model's own
+// text up to the ghost's position, verbatim, then the ghost's kind, then the
+// rest of the world free. The sampler can only re-walk the same road to the
+// fork and turn; everything after is the model's again.
+const ebnfLit = (t) => '"' + t.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"';
+export function forkGrammar(raw, ghost) {
+  const prefix = raw.slice(0, ghost.at) + ghost.kind;
+  const after = 7 - ghost.index - 1; // elements that may still follow
+  const rest = (ghost.index === 0 ? ' "," el' : "") + ' ("," el)?'.repeat(Math.max(0, after - (ghost.index === 0 ? 1 : 0)));
+  const tail = WORLD_GRAMMAR.split('"],\\"lines\\":['); // everything from the lines on, shared
+  return `root ::= ${ebnfLit(prefix)} "\\"" elrest${rest} "],\\"lines\\":[` + tail[1].split("\n")[0] + "\nelrest ::= " + '",\\"x\\":" xs ",\\"y\\":" ys ",\\"size\\":" size ",\\"color\\":" color ",\\"count\\":" count "}"' + "\n" + WORLD_GRAMMAR.split("\n").slice(2).join("\n");
+}
 
 // One worked example. Deliberately not one of the eval wishes, and deliberately
 // odd, so that copying it would look wrong.
@@ -122,7 +162,7 @@ const EXAMPLES = [["a jazz bar under the sea at 2am", {
     { kind: "fish", x: "left", y: "low", size: "tiny", color: "#ffe9b3", count: 8 },
   ],
   lines: ["Two in the morning and the water is warm with saxophone.", "Nobody here has ever seen the surface. Nobody asks."],
-  console: { side: "top", tone: "glass", shape: "pill", width: "narrow", prompt: "order something for the room…", button: "play", buttons: [{ label: "later, darker", action: "night" }, { label: "one more set", action: "again" }] },
+  console: { side: "top", tone: "glass", shape: "pill", width: "narrow", prompt: "order something for the room", button: "play", buttons: [{ label: "later, darker", action: "set time night" }, { label: "one more set", action: "again" }] },
   next: ["the same bar at closing time", "a lighthouse for the fish", "a rooftop above the sea"],
 }], ["a train station in a red desert, noon", {
   title: "Platform Nine, Vermilion",
@@ -135,7 +175,7 @@ const EXAMPLES = [["a jazz bar under the sea at 2am", {
     { kind: "column", x: "right", y: "ground", size: "medium", color: "#d97f4a", count: 3 },
     { kind: "bird", x: "far-right", y: "high", size: "tiny", color: "#2b0e05", count: 2 },
   ],
-  console: { side: "bottom", tone: "light", shape: "sharp", width: "full", prompt: "where to, passenger?", button: "depart", buttons: [{ label: "wait for dusk", action: "dusk" }, { label: "let it storm", action: "rain" }, { label: "somewhere else", action: "surprise" }] },
+  console: { side: "bottom", tone: "light", shape: "sharp", width: "full", prompt: "where to, passenger?", button: "depart", buttons: [{ label: "wait for dusk", action: "set time dusk" }, { label: "let it storm", action: "set weather rain" }, { label: "somewhere else", action: "elsewhere" }] },
   next: ["the next station, at night", "a train through snow"],
 }], ["a city folded out of paper, first light", {
   title: "Creased",
@@ -149,7 +189,7 @@ const EXAMPLES = [["a jazz bar under the sea at 2am", {
     { kind: "tree", x: "far-right", y: "ground", size: "small", color: "#cfd8c9", count: 5 },
     { kind: "cat", x: "left", y: "low", size: "tiny", color: "#3b3a4a", count: 1 },
   ],
-  console: { side: "right", tone: "paper", shape: "soft", width: "narrow", prompt: "write on the margin…", button: "fold", buttons: [{ label: "unfold", action: "undo" }, { label: "more houses", action: "more" }] },
+  console: { side: "right", tone: "paper", shape: "soft", width: "narrow", prompt: "write on the margin", button: "fold", buttons: [{ label: "unfold", action: "undo" }, { label: "more houses", action: "more house" }] },
   next: ["the same town after rain", "a paper forest", "inside one of the houses"],
 }]];
 
@@ -161,15 +201,17 @@ const shuffled = (list) => list.map((v) => [Math.random(), v]).sort((a, b) => a[
 // console and doors, because a 0.5B copies whatever console it is shown
 // (measured: 27 of 32 consoles in evals/2026-09-19-spec-qwen05b-prompt-v1 were
 // one of the three examples' consoles, label for label); false shows none.
+// One example's console, said rather than shown: a voice to learn, no block to copy.
+const proseConsole = (ex) => `console on the ${ex.console.side} edge, ${ex.console.tone}, ${ex.console.shape}, ${ex.console.width}; prompt "${ex.console.prompt}"; button "${ex.console.button}"; levers ${ex.console.buttons.map((b) => `"${b.label}" (${b.action})`).join(", ")}; doors ${ex.next.map((d) => `"${d}"`).join(", ")}.`;
 export const EXAMPLE_MODE = true; // what ships; the eval's default, so it measures what ships
 export function systemSpec({ example = EXAMPLE_MODE } = {}) {
   const [exWish, raw] = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)];
   const ex = {};
-  for (const k of ["title", "time", "weather", "sky", "ground", "ground_color", "ink", "accent", "font", "text_place", "motion", "elements", "lines", "console", "next"]) if (!(example === "bare" && (k === "console" || k === "next"))) ex[k] = raw[k];
+  for (const k of ["title", "time", "weather", "sky", "ground", "ground_color", "ink", "accent", "font", "text_place", "motion", "elements", "lines", "console", "next"]) if (!((example === "bare" || example === "prose") && (k === "console" || k === "next"))) ex[k] = raw[k];
   return [
     "You design worlds. The user says what world they want to live in; you answer with one compact JSON object and nothing else" + (example ? ", like this example for \"" + exWish + "\":" : "."),
     example ? JSON.stringify(ex) : "",
-    example ? "That example belongs to its own wish. Do not reuse its colors, its things or its words." + (example === "bare" ? " It leaves out the console and the doors: those you design for this world, in its own voice." : "") : "",
+    example ? "That example belongs to its own wish. Do not reuse its colors, its things or its words." + (example === "bare" ? " It leaves out the console and the doors: those you design for this world, in its own voice." : "") + (example === "prose" ? " It leaves out the console and the doors. For that world they were: " + proseConsole(raw) + " Yours belong to this wish and will be different." : "") : "",
     "Fields: title (two to five words); lines (two or three short poetic sentences about this world);",
     "time (" + shuffled(TIMES).join(", ") + "); weather (" + shuffled(WEATHERS).join(", ") + "); sky (two or three hex colors, top to horizon);",
     "ground (" + shuffled(GROUNDS).join(", ") + ") and ground_color; ink (text color) and accent, hex;",
@@ -177,7 +219,7 @@ export function systemSpec({ example = EXAMPLE_MODE } = {}) {
     "elements: three to six things in the scene, each with kind, x (" + XS.join(", ") + "), y (" + YS.join(", ") + "), size (" + SIZES.join(", ") + "), color, count (1, 2, 3, 5, 8 or 13).",
     "Kinds: " + shuffled(KINDS).join(", ") + ".",
     "console: the control panel is yours to design too: side (" + shuffled(SIDES).join(", ") + "), tone (" + shuffled(TONES).join(", ") + "), shape (" + shuffled(CON_SHAPES).join(", ") + "), width (" + shuffled(WIDTHS).join(", ") + "),",
-    "prompt (the invitation written in the input, in this world's voice), button (the word on the main button), and one to three buttons, each with a two or three word label in this world's voice and an action from: " + shuffled(ACTIONS).join(", ") + ".",
+    "prompt (the invitation written in the input, in this world's voice), button (the word on the main button), and one to three buttons: the levers. Each has a two or three word label in this world's voice and an action, which is what the lever really does, written as one of: set time <" + TIMES.join("|") + ">, set weather <" + WEATHERS.join("|") + ">, set ground <" + GROUNDS.join("|") + ">, set motion <" + MOTIONS.join("|") + ">, set font <" + FONTS.join("|") + ">, add <kind>, remove <kind>, more <kind>, fewer <kind>, undo, again, elsewhere, inside. The label must promise what the action does.",
     "next: one to three doors out of this world: short wishes, a few words each, for the world someone standing here would want to step into next. Nearby places, the same place changed, or somewhere this world hints at. Never the wish itself.",
     "Every world is different. Pick the things, colors and words that belong to THIS wish and to nothing else. Big things large, distant things small, mix positions. Colors are real hex colors that match the wish: lavender is #b39ddb, dusk is orange to violet, snow is white-blue, neon is bright on black.",
     "The wish may be vague: a single word, a feeling, a question, a greeting, another language. Still answer with a whole world that fits it; a feeling becomes a place that feels like that.",
@@ -238,7 +280,7 @@ export function normalizeSpec(o) {
       prompt: String(o.console?.prompt || "describe the world you want to live in…").slice(0, 70),
       button: String(o.console?.button || "dream").slice(0, 20),
       buttons: (Array.isArray(o.console?.buttons) ? o.console.buttons : []).slice(0, 3)
-        .map((b) => ({ label: String(b?.label || "").slice(0, 22), action: pick(b?.action, ACTIONS, "again") }))
+        .map((b) => ({ label: String(b?.label || "").slice(0, 22), action: parseAction(b?.action) ? actionText(parseAction(b?.action)) : "again" }))
         .filter((b) => b.label.trim()),
     },
     next: (Array.isArray(o.next) ? o.next : []).map((l) => String(l).trim().slice(0, 48)).filter(Boolean).slice(0, 3),
@@ -262,6 +304,7 @@ const Y_BY_SIDE = {
 };
 let Y = Y_BY_SIDE.bottom;
 const SIZE = { tiny: 4, small: 8, medium: 14, large: 24, huge: 40 };
+const DEPTH = { sky: 0.12, high: 0.28, horizon: 0.5, ground: 0.8, low: 1.1 }; // how much a thing shifts when you move: far things barely
 const AT_LEAST = { mountain: 30, hill: 26, volcano: 30, skyline: 34, iceberg: 22, dune: 26, pyramid: 20, temple: 20, bridge: 24, lighthouse: 14, tower: 16, house: 12, train: 22, whale: 22, tree: 12, pine: 12, palm: 14, birch: 12, sun: 10, moon: 8 };
 const FONT = {
   serif: '"Cormorant Garamond", Georgia, serif',
@@ -350,7 +393,7 @@ function element(e, i, motion) {
     const y = Y[e.y] + jitter * (e.y === "sky" ? 12 : 5) - (n > 1 ? Math.abs(t) * 4 : 0);
     const sz = s * (n > 1 ? 0.7 + ((k * 31) % 7) / 14 : 1);
     const delay = ((i * 3 + k) * 0.7).toFixed(2);
-    out.push(`<svg class="el ${e.kind}${GLOW.has(e.kind) ? " glow" : ""}" viewBox="0 0 100 100" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${sz.toFixed(1)}vmin;--d:${delay}s;--c:${e.color}">${SHAPES[e.kind](e.color)}</svg>`);
+    out.push(`<svg class="el ${e.kind}${GLOW.has(e.kind) ? " glow" : ""}" data-kind="${e.kind}" data-index="${i}" viewBox="0 0 100 100" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${sz.toFixed(1)}vmin;--d:${delay}s;--c:${e.color};--dz:${DEPTH[e.y]}"><title>${e.kind}: walk to it</title>${SHAPES[e.kind](e.color)}</svg>`);
   }
   return out.join("");
 }
@@ -434,7 +477,7 @@ export function renderWorld(spec, { ghosts = [], certainty = null } = {}) {
   const haloDark = isDark ? "0 0 30px rgba(0,0,0,.45)" : "0 0 30px rgba(255,255,255,.5)";
   const elements = s.elements.map((e, i) => element(e, i, s.motion)).join("") +
     ghosts.map((g) => { const e = s.elements[g.index]; if (!e || !SHAPES[g.kind]) return ""; const x = X[e.x] + 7, y = Y[e.y] - 3, sz = SIZE[e.size] * 0.9;
-      return `<svg class="el ghost" viewBox="0 0 100 100" style="left:${x}%;top:${y}%;width:${sz}vmin;opacity:${Math.min(0.4, g.p * 0.9).toFixed(2)};--c:${e.color}"><title>almost a ${g.kind} (${Math.round(g.p * 100)}%)</title>${SHAPES[g.kind](e.color)}</svg>`; }).join("");
+      return `<svg class="el ghost" data-ghost="${g.index}" data-kind="${g.kind}" viewBox="0 0 100 100" style="left:${x}%;top:${y}%;width:${sz}vmin;--gmax:${Math.min(0.45, g.p * 0.9 + 0.1).toFixed(2)};--c:${e.color};--dz:${DEPTH[e.y]}"><title>almost a ${g.kind} (${Math.round(g.p * 100)}%): walk into it</title>${SHAPES[g.kind](e.color)}</svg>`; }).join("");
 
   const css = `
 :root { --bnw-bg: ${conBg}; --bnw-fg: ${conFg}; --bnw-accent: ${conAccent}; --bnw-font: ${FONT[s.font]}; --bnw-side: ${s.console.side}; --bnw-words: ${s.text_place}; --speed: ${speed}; }
@@ -443,8 +486,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
 body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-family: ${FONT[s.font]}; position: relative; }
 .ground { position: absolute; left: 0; right: 0; top: ${horizon}%; bottom: 0; ${groundCss(s)} }
 .haze { position: absolute; left: 0; right: 0; top: ${horizon - 14}%; height: 28%; background: linear-gradient(180deg, transparent, ${rgba(s.sky[s.sky.length - 1], 0.7)} 50%, transparent); pointer-events: none; }
-.el { position: absolute; transform: translate(-50%, -50%); overflow: visible; }
+.el { position: absolute; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); overflow: visible; cursor: pointer; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
+.el:hover { filter: drop-shadow(0 0 10px var(--c)); }
 .el.ghost { mix-blend-mode: screen; animation: ghost calc(5s / var(--speed)) ease-in-out infinite alternate; pointer-events: auto; }
+.el.ghost:hover { animation: none; opacity: 0.7; }
 @keyframes ghost { from { opacity: 0.05; } to { opacity: var(--gmax, 0.35); } }
 .el.glow { filter: drop-shadow(0 0 14px var(--c)) drop-shadow(0 0 40px ${rgba(s.accent, 0.35)}); }
 .el.bird, .el.butterfly, .el.balloon, .el.cloud, .el.boat, .el.jellyfish, .el.fish, .el.whale { animation: drift calc(18s / var(--speed)) ease-in-out infinite alternate; animation-delay: var(--d); }
@@ -562,33 +607,45 @@ export function sense(spec, wish) {
 
 // The things a model-invented button can do to the world it lives in.
 const NIGHTFALL = { night: ["#05060f", 0.65], dawn: ["#f7c6a3", 0.45], noon: ["#bfe3ff", 0.5], dusk: ["#c98a9a", 0.45] };
+const COUNTS = [1, 2, 3, 5, 8, 13];
 export function applyAction(spec, action) {
   const n = JSON.parse(JSON.stringify(spec));
-  switch (action) {
-    case "night": case "dawn": case "noon": case "dusk": {
-      n.time = action;
-      const [toward, t] = NIGHTFALL[action];
-      n.sky = n.sky.map((c, i) => mix(c, toward, t * (i === 0 && action === "night" ? 1.2 : 1)).slice(0, 7));
-      n.ground_color = mix(n.ground_color, toward, action === "night" ? 0.55 : t * 0.6);
-      if (action === "night" && n.weather === "clear") n.weather = "stars";
-      if (action !== "night" && n.weather === "stars") n.weather = "clear";
-      if (action === "night" && lum(n.ink) < 0.5) n.ink = "#efe6d6";
-      if (action === "noon" && lum(n.ink) > 0.7) n.ink = "#1b1620";
-      return n;
-    }
-    case "rain": case "snow": case "stars": case "clear": case "fog": n.weather = action; return n;
-    case "calm": n.motion = "still"; return n;
-    case "wild": n.motion = "restless"; return n;
-    case "more": {
-      const src = n.elements[Math.floor(Math.random() * n.elements.length)];
-      const xs = XS.filter((x) => x !== src.x);
-      n.elements.push({ ...src, x: xs[Math.floor(Math.random() * xs.length)], count: Math.max(1, Math.min(13, src.count)) });
-      n.elements = n.elements.slice(-9);
-      return n;
-    }
-    case "less": if (n.elements.length > 1) n.elements.pop(); return n;
-    default: return n;
+  const a = typeof action === "string" ? parseAction(action) : action;
+  if (!a) return n;
+  if (a.verb === "set" && a.field === "time") {
+    const t0 = a.value;
+    n.time = t0;
+    const [toward, t] = NIGHTFALL[t0];
+    n.sky = n.sky.map((c, i) => mix(c, toward, t * (i === 0 && t0 === "night" ? 1.2 : 1)).slice(0, 7));
+    n.ground_color = mix(n.ground_color, toward, t0 === "night" ? 0.55 : t * 0.6);
+    if (t0 === "night" && n.weather === "clear") n.weather = "stars";
+    if (t0 !== "night" && n.weather === "stars") n.weather = "clear";
+    if (t0 === "night" && lum(n.ink) < 0.5) n.ink = "#efe6d6";
+    if (t0 === "noon" && lum(n.ink) > 0.7) n.ink = "#1b1620";
+    return n;
   }
+  if (a.verb === "set") { n[a.field] = a.value; return n; }
+  const byKind = (k) => n.elements.findIndex((e) => e.kind === k);
+  const fresh = (k) => ({ kind: k, x: XS[Math.floor(Math.random() * XS.length)], y: GROUNDED.has(k) ? "ground" : ["sky", "high"][Math.floor(Math.random() * 2)], size: "medium", color: Math.random() < 0.5 ? n.accent : n.ink, count: 1 });
+  const step = (c, d) => COUNTS[Math.max(0, Math.min(COUNTS.length - 1, COUNTS.indexOf(COUNTS.includes(c) ? c : COUNTS.find((x) => x >= c) || 13) + d))];
+  switch (a.verb) {
+    case "add": n.elements.push(fresh(a.kind)); break;
+    case "remove": n.elements = n.elements.filter((e) => e.kind !== a.kind); break;
+    case "more": {
+      const i = a.kind ? byKind(a.kind) : Math.floor(Math.random() * n.elements.length);
+      if (i < 0) n.elements.push(fresh(a.kind)); else n.elements[i].count = step(n.elements[i].count, 1);
+      break;
+    }
+    case "fewer": {
+      const i = a.kind ? byKind(a.kind) : n.elements.length - 1;
+      if (i >= 0) { if (n.elements[i].count <= 1) n.elements.splice(i, 1); else n.elements[i].count = step(n.elements[i].count, -1); }
+      break;
+    }
+    default: return n; // undo, again, elsewhere, inside: the app's business
+  }
+  n.elements = n.elements.slice(-9);
+  if (!n.elements.length) n.elements.push({ kind: "star", x: "center", y: "sky", size: "small", color: n.ink, count: 5 });
+  return n;
 }
 
 // From the token stream to the roads not taken: for every element's kind, the
@@ -609,7 +666,7 @@ export function ghostsFrom(spec, raw, tokens) {
     const alts = (tok.alts || []).map((a) => {
       const text = (already + a.token).replace(/^"/, "").toLowerCase();
       const kind = KINDS.find((k) => k !== chosen && text.length >= 2 && k.startsWith(text) && !chosen.startsWith(text));
-      return kind ? { index: i, kind, p: a.p } : null;
+      return kind ? { index: i, kind, p: a.p, chosen: chosen, chosenP: tok.p, at: pos } : null;
     }).filter(Boolean);
     if (alts.length) ghosts.push(alts.sort((a, b) => b.p - a.p)[0]);
   }
