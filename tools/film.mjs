@@ -40,10 +40,13 @@ async function connect(id) {
   const t = (await targets()).find((x) => x.id === id);
   const ws = new WebSocket(t.webSocketDebuggerUrl);
   await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
-  let seq = 0; const pending = new Map(); const handlers = {};
-  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); } else if (d.method && handlers[d.method]) handlers[d.method](d.params); };
-  const send = (method, params = {}) => new Promise((r) => { const id = ++seq; pending.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
-  return { send, on: (m, f) => (handlers[m] = f), close: () => ws.close() };
+  let seq = 0; const pending = new Map(); const handlers = {}; let closed = false;
+  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pending.has(d.id)) { pending.get(d.id).res(d); pending.delete(d.id); } else if (d.method && handlers[d.method]) handlers[d.method](d.params); };
+  // a dropped connection must fail loudly, not leave the take awaiting a reply that never comes
+  ws.onclose = () => { if (closed) return; console.error("devtools connection closed mid-take"); for (const p of pending.values()) p.rej(new Error("devtools closed")); pending.clear(); process.exitCode = 3; };
+  ws.onerror = (e) => console.error("devtools error", e?.message || e);
+  const send = (method, params = {}) => new Promise((res, rej) => { const id = ++seq; pending.set(id, { res, rej }); try { ws.send(JSON.stringify({ id, method, params })); } catch (e) { pending.delete(id); rej(e); } });
+  return { send, on: (m, f) => (handlers[m] = f), close: () => { closed = true; ws.close(); } };
 }
 
 async function film() {
