@@ -35,11 +35,40 @@ const CSS = `
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* ---- what the model's choices do to the furniture: shape, tone and width decide
+   the input's form, the levers' dress and the order things come in ---- */
+.panel { display: flex; flex-direction: column; }
+.top { order: 0; } .inside { order: 1; } form { order: 2; } .acts { order: 3; } .doors { order: 4; } .wakebox { order: 5; } .demos { order: 6; } .history { order: 7; } .status { order: 8; }
+/* narrow: levers stacked above the line, like a menu */
+:host([data-width="narrow"]) .acts { order: 1; flex-direction: column; align-items: flex-start; }
+:host([data-width="narrow"]) form { order: 2; }
+:host([data-width="narrow"]) .doors { order: 3; flex-direction: column; align-items: flex-start; gap: 4px; }
+/* full: levers spread across the whole edge, the line sits last, at the rim */
+:host([data-width="full"]) .acts { order: 1; justify-content: space-between; }
+:host([data-width="full"]) .acts .act { flex: 1 1 0; text-align: center; }
+:host([data-width="full"]) .doors { order: 2; justify-content: center; }
+:host([data-width="full"]) form { order: 7; }
+:host([data-width="full"]) .history { order: 6; }
+/* shape: the line itself takes the model's shape */
+:host([data-shape="pill"]) form { border-radius: 999px; padding-left: 22px; padding-right: 18px; }
+:host([data-shape="sharp"]) form { border-radius: 0; border-width: 0 0 2px 0; background: transparent; padding-left: 0; padding-right: 0; }
+:host([data-shape="sharp"]) .act { border-width: 2px; font-style: normal; letter-spacing: 0.04em; text-transform: lowercase; }
+:host([data-shape="soft"]) form { border-radius: 14px; }
+/* tone: how the levers are dressed */
+:host([data-tone="light"]) .act, :host([data-tone="paper"]) .act { background: var(--accent); color: var(--bg); border-color: transparent; }
+:host([data-tone="light"]) .act:hover, :host([data-tone="paper"]) .act:hover { filter: brightness(1.08); background: var(--accent); }
+:host([data-tone="paper"]) .act { background: transparent; color: var(--accent); border: 1px dashed var(--accent); }
+:host([data-tone="paper"]) form { border-style: dashed; background: transparent; }
+:host([data-tone="dark"]) .act { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+:host([data-tone="glass"]) .act { background: color-mix(in srgb, var(--fg) 8%, transparent); backdrop-filter: blur(6px); }
+:host([data-tone="neon"]) form { box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 40%, transparent), inset 0 0 12px color-mix(in srgb, var(--accent) 12%, transparent); }
+:host([data-tone="neon"]) button.go { text-shadow: 0 0 12px var(--accent); }
+:host([data-tone="light"]) button.go { background: var(--accent); color: var(--bg); border-radius: 999px; padding: 6px 16px; font-style: normal; }
+
 /* ---- where the model put the panel ---- */
 :host([data-side="top"]) { top: 0; bottom: auto; }
 :host([data-side="top"]) .panel { border-radius: 0 0 var(--radius) var(--radius); border-top: 0; border-bottom: 1px solid var(--line); box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.7); padding-top: calc(10px + env(safe-area-inset-top)); }
-:host([data-side="top"]) .panel { display: flex; flex-direction: column; }
-:host([data-side="top"]) .acts { order: 9; margin: 10px 0 2px; }
+:host([data-side="top"]) .acts { margin: 10px 0 2px; }
 :host([data-side="left"]), :host([data-side="right"]) { top: 0; bottom: 0; left: 0; right: auto; width: min(400px, 92vw); display: flex; align-items: flex-end; }
 :host([data-side="right"]) { left: auto; right: 0; }
 :host([data-side="left"]) .panel, :host([data-side="right"]) .panel { width: 100%; max-width: none; margin: 0; border-radius: 0 var(--radius) 0 0; border-left: 0; }
@@ -145,7 +174,7 @@ const CSS = `
 :host([data-side="right"]) .doors { justify-content: flex-end; }
 :host([data-side="left"]) .doors, :host([data-side="right"]) .doors { flex-direction: column; align-items: flex-start; gap: 4px; }
 :host([data-side="right"]) .doors { align-items: flex-end; }
-:host([data-side="top"]) .doors { order: 10; }
+
 .acts:empty { display: none; }
 .act { background: transparent; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius: 999px; color: var(--accent); font-family: var(--font); font-style: italic; font-size: 16px; padding: 6px 15px; cursor: pointer; min-height: 36px; }
 .act:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
@@ -386,6 +415,8 @@ export class BnwConsole extends HTMLElement {
       if (e.composedPath().includes(this.$("head"))) return;
       if (!this.$("head").hidden) return this.openHead(false);
       if (e.composedPath().includes(root.querySelector(".panel"))) return;
+      // a thing or a ghost under the finger wins over the creature drifting behind it
+      if (e.composedPath().some((n) => n.classList?.contains?.("el"))) return;
       const at = this.sky.shogAt?.();
       if (at && at.x && at.y && Math.hypot(e.clientX - at.x, e.clientY - at.y) < at.r * 1.7) { e.stopPropagation(); this.openHead(true); }
     }, true);

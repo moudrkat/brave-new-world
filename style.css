@@ -80,7 +80,7 @@ body.world-zero .dedication {
 
 /* one world dissolving into the next; the console travels on its own */
 bnw-console { view-transition-name: console; }
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: 1.6s; animation-timing-function: ease-in-out; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 1.2s; animation-timing-function: ease-in-out; }
 ::view-transition-group(console) { animation-duration: 1.1s; animation-timing-function: cubic-bezier(.4, 0, .2, 1); }
 ::view-transition-old(console), ::view-transition-new(console) { animation-duration: 0.9s; }
 @media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 0.01s !important; } }

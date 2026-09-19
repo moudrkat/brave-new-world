@@ -50,7 +50,11 @@ with a title, two lines of poem, colors, time, weather, ground, three to six
 things from a vocabulary of fifty-three, the design of its own console (side,
 tone, shape, width, the invitation in the input, the word on the button, one
 to three levers with a label in the world's voice and an action it composes),
-and one to three doors: short wishes for the world you might want next.
+and one to three doors: short wishes for the world you might want next. Those
+four words go a long way: the shape is the input's shape too, the tone
+dresses the levers (outlined, filled, dashed, glowing), and the width is the
+arrangement, a narrow column of levers above the line, a wide row below it,
+or levers spread across the whole edge with the line at the rim.
 Every token it produces is a choice, not syntax, because the syntax is enforced
 by the sampler. A JavaScript engine then paints what it named, properly. The
 model decides everything you see; the drawing of a lighthouse is ours.
