@@ -255,9 +255,7 @@ async function generate(engine, messages, wish, strategy, grammar = null, quiet 
       con.updateStats(t0, n);
       if (strategy === "html" && /<body/i.test(raw)) applyWorld(extractHtml(raw, wish), { partial: true });
       // the world forms as it is written: whatever the spec says so far, painted
-      if (strategy === "spec") { try { const so = completeJson(raw); if (so && (so.sky || so.title)) { const sp = normalizeSpec(so); sp.next = Array.isArray(so.next) ? so.next.filter((x) => typeof x === "string").slice(0, 1) : [];
-          // nothing stands in for things not yet named: no default stars, and a half-written kind waits for its name
-          sp.elements = Array.isArray(so.elements) ? sp.elements.filter((e, i) => so.elements[i] && so.elements[i].kind === e.kind) : []; applyWorld(renderWorld(sp), { partial: true, quick: true, design: so.console && typeof so.console === "object" ? designFor(sp) : null }); con.forming(true); } } catch (e) { console.warn("forming skipped", e); } }
+      if (strategy === "spec") formFrom(raw);
     }
   }
   if (!quiet) con.updateStats(t0, n);
@@ -334,6 +332,22 @@ function paintSigns() {
   if (ticking) signTimer = setTimeout(paintSigns, 1000);
 }
 con.markDoor = () => {}; // the doors live in the world now
+
+// The world forms as it is written: whatever the spec says so far, painted.
+// Nothing stands in for things not yet named: no default stars, and a
+// half-written kind waits for its name. A half spec that cannot be read
+// skips its tick and nothing else notices.
+function formFrom(text) {
+  try {
+    const so = completeJson(text);
+    if (!so || !(so.sky || so.title)) return;
+    const sp = normalizeSpec(so);
+    sp.next = Array.isArray(so.next) ? so.next.filter((x) => typeof x === "string").slice(0, 1) : [];
+    sp.elements = Array.isArray(so.elements) ? sp.elements.filter((e, i) => so.elements[i] && so.elements[i].kind === e.kind) : [];
+    applyWorld(renderWorld(sp), { partial: true, quick: true, design: so.console && typeof so.console === "object" ? designFor(sp) : null });
+    con.forming(true);
+  } catch (e) { console.warn("forming skipped", e); }
+}
 
 // fork: { messages, raw, ghost } walks the model down its own road to the
 // ghost and makes it take the other turning; the rest is dreamt again.
@@ -465,7 +479,7 @@ async function replay(d, { label, status }) {
   // the tokens it wrote that day, at their real certainties, faster than it wrote them
   const t0 = performance.now();
   const toks = d.tokens || [];
-  let prefix = "";
+  let prefix = "", lastForm = 0;
   const pace = Math.max(6, Math.min(24, 7000 / Math.max(1, toks.length))); // about seven seconds, whatever it wrote
   for (let k = 0; k < toks.length; k++) {
     if (token !== replaying) { state.dreaming = false; if (replayCtl === ctl) replayCtl = null; return; }
@@ -473,8 +487,10 @@ async function replay(d, { label, status }) {
     con.paintToken(t.token, t.p, t.alts || [{ token: t.token, p: t.p }], prefix);
     prefix += t.token;
     if (k % 8 === 0) con.updateStats(t0, k + 1, "replayed", d.seconds || null);
+    if (!ctl.skip && performance.now() - lastForm > 450) { lastForm = performance.now(); formFrom(prefix); }
     if (!ctl.skip) await new Promise((r) => setTimeout(r, pace));
   }
+  con.forming(false);
   con.updateStats(t0, toks.length, "replayed", d.seconds || null);
   setTimeout(() => con.openInside(false), 2500);
   applyWorld(html);

@@ -105,7 +105,8 @@ const CSS = `
 .veil { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8vh 6vw; opacity: 0; transition: opacity 1.2s ease; background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 78%, transparent), transparent 72%); }
 .veil.on { opacity: 1; }
 .veil.forming { background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 40%, transparent), transparent 72%); }
-.veil.forming .veil-inner { opacity: 0.8; max-height: 30vh; font-size: clamp(13px, 1.7vw, 20px); }
+.veil-inner { display: none; }
+.veil.forming { background: none; }
 :host([data-side="top"]) .veil { justify-content: flex-end; padding-bottom: 12vh; }
 :host([data-side="bottom"]) .veil, :host(:not([data-side])) .veil { justify-content: flex-start; padding-top: 12vh; }
 .veil-inner { max-width: 62ch; font-family: var(--mono); font-size: clamp(15px, 2.1vw, 26px); line-height: 1.55; white-space: pre-wrap; word-break: break-word; text-align: left; mask-image: linear-gradient(to bottom, transparent 0, #000 18%, #000 100%); -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18%, #000 100%); max-height: 46vh; overflow: hidden; display: flex; flex-wrap: wrap; align-content: flex-end; }
@@ -602,9 +603,6 @@ export class BnwConsole extends HTMLElement {
     const inner = this.$("ribbon-inner");
     inner.appendChild(span);
     while (inner.childNodes.length > 600) inner.removeChild(inner.firstChild);
-    const veil = this.$("veil-inner");
-    veil.appendChild(span.cloneNode(true));
-    while (veil.childNodes.length > 260) veil.removeChild(veil.firstChild);
     this.probs.push(p);
     this.doubt = this.doubt * 0.92 + (1 - p) * 0.08;
     this.sky.spark(p);
@@ -789,6 +787,8 @@ function makeSky(c, host) {
     grad.addColorStop(1, "rgba(7,6,11,0.9)");
     g.fillStyle = grad;
     g.fill();
+    // an outline in the world's own ink: whatever color the sky takes, the creature stays seen
+    g.strokeStyle = shog.ink; g.lineWidth = 1.4; g.globalAlpha = host.worldActive ? 0.6 : 0.3; g.stroke(); g.globalAlpha = host.worldActive ? 0.85 : 0.55;
     // a halo instead of a shadow blur: blur on a full-screen canvas is too costly without a GPU
     const halo = g.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * (1.8 + shog.jolt));
     halo.addColorStop(0, shog.hue.length === 7 ? shog.hue + "55" : "rgba(155,107,255,0.33)");

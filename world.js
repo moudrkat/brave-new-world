@@ -794,8 +794,33 @@ export function surprise(spec, index, rnd = Math.random) {
     cat: () => { n.elements.splice(index, 1); return "the cat left, as cats do"; },
     person: () => { e.count = step(e.count, 1); return "company"; },
     figure: () => { e.kind = "person"; return "it turned out to be someone"; },
+    planet: () => { e.size = sizes[Math.min(sizes.length - 1, sizes.indexOf(e.size) + 1)]; n.weather = "stars"; return "the planet came closer and brought its stars"; },
+    mountain: () => { e.size = "huge"; n.weather = "snow"; return "the mountain grew until it snowed"; },
+    hill: () => { n.elements.push({ kind: "deer", x: pick(XS.filter((x) => x !== e.x)), y: "ground", size: "small", color: n.ink, count: 1 }); return "a deer came over the hill"; },
+    pyramid: () => { Object.assign(n, applyAction(n, "set time noon")); n.ground = "sand"; return "the pyramid insisted on noon"; },
+    iceberg: () => { n.ground = "ice"; n.weather = "snow"; return "the iceberg brought the cold with it"; },
+    dune: () => { n.elements.forEach((x) => { x.x = XS[(XS.indexOf(x.x) + 1) % XS.length]; }); return "the wind moved the dunes, and everything with them"; },
+    tree: () => { e.size = sizes[Math.min(sizes.length - 1, sizes.indexOf(e.size) + 1)]; n.weather = n.time === "night" ? "fireflies" : "petals"; return n.time === "night" ? "the tree was full of fireflies" : "the tree blossomed"; },
+    pine: () => { n.weather = "snow"; return "snow, on a pine, as it should be"; },
+    palm: () => { Object.assign(n, applyAction(n, "set time noon")); n.weather = "clear"; return "the palm asked for noon and got it"; },
+    birch: () => { e.count = step(e.count, 2); n.weather = "fog"; return "birches in the fog, and more of them"; },
+    reed: () => { n.weather = "bubbles"; if (n.ground === "grass" || n.ground === "moss") n.ground = "water"; return "the reeds stood in water after all"; },
+    tower: () => { e.size = "huge"; Object.assign(n, applyAction(n, "set time dusk")); return "the tower grew and the day grew late"; },
+    house: () => { Object.assign(n, applyAction(n, "set time night")); n.weather = "fireflies"; return "someone lit the lamp; it must be evening"; },
+    temple: () => { n.weather = "petals"; n.motion = "still"; return "the temple asked for silence, and petals"; },
+    skyline: () => { Object.assign(n, applyAction(n, "set time night")); n.weather = "rain"; return "the city turned its lights on, and it rained"; },
+    bridge: () => { n.elements.push({ kind: "train", x: e.x, y: "horizon", size: "small", color: n.ink, count: 1 }); n.motion = "restless"; return "a train crossed the bridge"; },
+    arch: () => { n.text_place = PLACES[(PLACES.indexOf(n.text_place) + 1) % PLACES.length]; return "through the arch the words read from elsewhere"; },
+    column: () => { e.count = step(e.count, 2); n.ground = "stone"; return "one column is an accident; five are a ruin"; },
+    tent: () => { Object.assign(n, applyAction(n, "set time night")); n.weather = "stars"; n.elements.push({ kind: "fire", x: e.x, y: "ground", size: "small", color: n.accent, count: 1 }); return "night came to the camp, and a fire"; },
+    windmill: () => { n.motion = "restless"; n.weather = "clear"; return "the wind picked up"; },
+    piano: () => { n.weather = "petals"; n.motion = "slow"; return "someone played, and the petals fell in time"; },
+    book: () => { n.text_place = PLACES[(PLACES.indexOf(n.text_place) + 1) % PLACES.length]; return "the book turned a page and the words moved"; },
+    swing: () => { n.motion = "restless"; e.count = 2; return "the swing kept swinging, and found a friend"; },
+    deer: () => { n.elements.splice(index, 1); n.weather = "fog"; return "the deer looked at you, then was gone"; },
+    jellyfish: () => { n.ground = "sea"; e.count = step(e.count, 2); n.weather = "bubbles"; return "the jellyfish brought the sea up with them"; },
   };
-  if (special[e.kind]) return { spec: n, note: special[e.kind]() };
+  if (special[e.kind]) { const note = special[e.kind](); n.elements = n.elements.slice(-9); return { spec: n, note }; }
   const generic = [
     () => { e.count = step(e.count, 1); return `more ${e.kind}`; },
     () => { e.size = sizes[Math.min(sizes.length - 1, sizes.indexOf(e.size) + 1)]; return `a bigger ${e.kind}`; },
@@ -804,7 +829,14 @@ export function surprise(spec, index, rnd = Math.random) {
     () => { n.elements.push({ ...e, x: pick(XS.filter((x) => x !== e.x)), count: 1 }); return `a second ${e.kind}`; },
     () => { if (n.elements.length > 1) n.elements.splice(index, 1); return `the ${e.kind} is gone`; },
   ];
-  return { spec: n, note: pick(generic)() };
+  // a thing with no story of its own still turns the world a little, most of the time
+  const twist = [
+    () => { n.weather = pick(WEATHERS.filter((w) => w !== n.weather)); return `and the weather turned to ${n.weather}`; },
+    () => { const t = TIMES[(TIMES.indexOf(n.time) + 1) % TIMES.length]; Object.assign(n, applyAction(n, "set time " + t)); return `and it became ${t}`; },
+    () => { n.motion = n.motion === "restless" ? "still" : "restless"; return n.motion === "still" ? "and everything held still" : "and everything stirred"; },
+  ];
+  const note = pick(generic)();
+  return { spec: n, note: rnd() < 0.7 ? `${note}, ${pick(twist)()}` : note };
 }
 // a tap on the ground: something grows where it landed
 export function sprout(spec, xFrac, rnd = Math.random) {

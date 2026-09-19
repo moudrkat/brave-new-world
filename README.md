@@ -37,11 +37,7 @@ One button wakes the mind. No model to pick, no settings. Before you wake it,
 three worlds it already dreamt can be stepped into with nothing downloaded, on
 any browser, on a phone.
 
-![the page beginning by itself: tokens first, then a world](docs/opening.gif)
-
-![a world, dreamed](docs/world.jpg)
-
-![a door the model proposed, already dreamt while you looked, opening](docs/door.gif)
+![a world forming as the model writes it](docs/opening.gif)
 
 ## How
 
