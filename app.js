@@ -276,6 +276,7 @@ async function dream(wish, fork = null) {
 
   const strategy = STRATEGY;
   let messages = fork ? fork.messages : messagesFor(wish, strategy);
+  const asked = messages; // what the accepted attempt was asked with, kept for a later fork; retries add to a copy
   const grammar = fork ? forkGrammar(fork.raw, fork.ghost) : null;
   let report = null, retries = 0, raw = "", t0 = performance.now(), out = null;
   const attempts = [];
@@ -319,7 +320,7 @@ async function dream(wish, fork = null) {
   if (report?.spec) document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[report.spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
   if (ghosts.length) con.setHarness(con.harnessText + ` · ${ghosts.length} ghost${ghosts.length > 1 ? "s" : ""} of what it almost placed · tap one to walk into it`);
   state.worlds.push({ wish: fork ? `${wish} · a ${fork.ghost.kind} instead` : wish, html, issues: report?.issues || [], retries, attempts, strategy, spec: report?.spec || null, ghosts, certainty: report?.certainty || null,
-    raw, tokens: out?.tokens || [], messages: fork ? fork.messages : messages.slice(0, 3), seconds: out?.seconds || 0, model: state.modelId, date: new Date().toISOString() });
+    raw, tokens: out?.tokens || [], messages: retries ? messages : asked, seconds: out?.seconds || 0, model: state.modelId, date: new Date().toISOString() });
   state.current = state.worlds.length - 1;
   con.renderHistory(state.worlds, state.current, pick);
   state.dreaming = false;
@@ -343,7 +344,7 @@ function takeAhead(a) {
   applyWorld(report.html);
   if (report.spec) document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[report.spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
   state.worlds.push({ wish: a.wish, html: report.html, issues: report.issues, retries: 0, attempts: [], strategy: STRATEGY, spec: report.spec, ghosts: report.ghosts || [], certainty: report.certainty || null,
-    raw: out.raw, tokens: out.tokens, messages: messages.slice(0, 3), seconds: out.seconds, model: state.modelId, date: new Date().toISOString(), ahead: true });
+    raw: out.raw, tokens: out.tokens, messages, seconds: out.seconds, model: state.modelId, date: new Date().toISOString(), ahead: true });
   state.current = state.worlds.length - 1;
   con.renderHistory(state.worlds, state.current, pick);
   con.setDreaming(false);
