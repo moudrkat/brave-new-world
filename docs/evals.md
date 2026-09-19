@@ -64,3 +64,14 @@ of the time by keyword, more by eye. Doors always lead somewhere else. The
 world matches the wish's plain cues 0.38 of the time, which is the honest
 number for a 0.5B choosing from fifty-three things: it hears "lighthouse"
 and often draws a tower. Originality 0.34 is the copying, measured.
+
+## One door
+
+Late on the same day the grammar went from one-to-three doors to exactly
+one: fewer tokens a world (346 against 368), one way on that is always the
+one dreamt ahead, and one signpost in the scene instead of a row of text.
+Measured again on the 32 wishes with the fresh retry: 6% sent back, 1 of 32
+still not language after the retry, sense 0.46, levers 0.66, total 0.92. The
+ambiguous and follow-up rows were measured with the three-door grammar and
+were not rerun; nothing in that change touches what they measure.
+

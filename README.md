@@ -142,10 +142,10 @@ was changed because of them in [docs/evals.md](docs/evals.md).
 
 | mind | set | example | tok/s | broken | dead | sense | original | prose | levers | doors | edit | kept | total |
 |---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Qwen2.5 Coder · 0.5B, shipped | wishes | full | 15 | 12% | 0% | 0.38 | 0.34 | 1.00 | 0.69 | 1.00 | · | · | 0.87 |
+| Qwen2.5 Coder · 0.5B, shipped (one door) | wishes | full | 14 | 6% | 3% | 0.46 | 0.36 | 0.99 | 0.66 | 1.00 | · | · | 0.92 |
 | Qwen2.5 Coder · 0.5B | ambiguous | full | 13 | 25% | 19% | 0.00 | 0.33 | 0.98 | 0.75 | 0.92 | · | · | 0.86 |
 | Qwen2.5 Coder · 0.5B | followups | full | 15 | 0% | 0% | 0.78 | 0.92 | 1.00 | 0.83 | 0.99 | 0.33 | 0.86 | 0.88 |
-| the same, retry shown its broken attempt | wishes | full | 12 | 12% | 12% | 0.42 | 0.50 | 0.97 | 0.64 | 1.00 | · | · | 0.89 |
+| the same, three doors, retry shown its broken attempt | wishes | full | 12 | 12% | 12% | 0.42 | 0.50 | 0.97 | 0.64 | 1.00 | · | · | 0.89 |
 | Qwen2.5 Coder · 0.5B | wishes | prose | 14 | 12% | 9% | 0.45 | 0.41 | 0.98 | 0.19 | 0.99 | · | · | 0.87 |
 | Qwen2.5 Coder · 0.5B | wishes | bare | 15 | 69% | 62% | 0.41 | 0.38 | 0.86 | 0.10 | 0.98 | · | · | 0.88 |
 
