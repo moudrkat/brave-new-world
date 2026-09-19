@@ -101,7 +101,7 @@ async function film() {
   };
   const waitDream = async () => {
     const before = await ev("window.__bnw.worlds.length");
-    for (let i = 0; i < 400; i++) { await sleep(300); if ((await ev("window.__bnw.worlds.length")) > before && !(await ev("window.__bnw.dreaming"))) return; }
+    for (let i = 0; i < 1000; i++) { await sleep(300); if ((await ev("window.__bnw.worlds.length")) > before && !(await ev("window.__bnw.dreaming"))) return; }
     throw new Error("the dream never ended");
   };
 
@@ -120,7 +120,7 @@ async function film() {
     const kind = await ev(`document.querySelector(".el.ghost")?.dataset.kind || ""`);
     if (!kind) return false;
     beat("ghost", { kind });
-    await ev(`document.querySelector(".el.ghost").dispatchEvent(new MouseEvent("click", { bubbles: true }))`);
+    await ev(`(() => { const g = document.querySelector(".el.ghost"); const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
     beat("dream", { wish: "ghost: " + kind });
     await waitDream();
     await describe();
@@ -132,7 +132,7 @@ async function film() {
     const kind = await ev(`(() => { const els = [...document.querySelectorAll(".el:not(.ghost)")].filter(e => { const r = e.getBoundingClientRect(); return r.width > 30 && r.top > 40 && r.bottom < innerHeight * 0.7; }); return els.length ? els[Math.floor(els.length / 2)].dataset.kind : ""; })()`);
     if (!kind) return false;
     beat("walk", { kind });
-    await ev(`[...document.querySelectorAll(".el:not(.ghost)")].find(e => e.dataset.kind === ${JSON.stringify(kind)}).dispatchEvent(new MouseEvent("click", { bubbles: true }))`);
+    await ev(`(() => { const g = [...document.querySelectorAll(".el:not(.ghost)")].find(e => e.dataset.kind === ${JSON.stringify(kind)}); const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
     beat("dream", { wish: "walk to the " + kind });
     await waitDream();
     await describe();

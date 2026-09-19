@@ -373,7 +373,7 @@ export class BnwConsole extends HTMLElement {
       if (!this.$("head").hidden) return this.openHead(false);
       if (e.composedPath().includes(root.querySelector(".panel"))) return;
       const at = this.sky.shogAt?.();
-      if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) < at.r * 1.7) { e.stopPropagation(); this.openHead(true); }
+      if (at && at.x && at.y && Math.hypot(e.clientX - at.x, e.clientY - at.y) < at.r * 1.7) { e.stopPropagation(); this.openHead(true); }
     }, true);
 
     const ribbon = this.$("ribbon");
