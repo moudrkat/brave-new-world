@@ -105,7 +105,11 @@ const designFor = (spec, certainty) => (spec ? { ...spec.console, next: spec.nex
 function applyWorld(html, opts = {}) {
   if (!html || html === applied) return;
   if (opts.partial || !document.startViewTransition || document.documentElement.classList.contains("low-power")) return swapWorld(html, opts);
-  document.startViewTransition(() => swapWorld(html, opts));
+  const vt = document.startViewTransition(() => swapWorld(html, opts));
+  // a browser that never gets round to capturing the old page would hold the
+  // old page forever; after a moment the world is swapped without the fade
+  const guard = setTimeout(() => vt.skipTransition(), 1800);
+  vt.updateCallbackDone.finally(() => clearTimeout(guard)).catch(() => {});
 }
 function swapWorld(html, { partial = false } = {}) {
   applied = html;
@@ -613,5 +617,15 @@ con.setStatus(MOCK ? "asleep · dry run" : "asleep · nothing downloaded yet");
   if (sent) return replay(sent, { label: `a world someone sent you · dreamt on ${(sent.date || "").slice(0, 10)} · ${sent.tokens.length} tokens in ${(sent.seconds || 0).toFixed(1)} s`, status: "someone sent you this world · its levers work · wake the mind to walk on" });
   if (PARAMS.get("demo") != null && DEMOS[+PARAMS.get("demo")]) playDemo(+PARAMS.get("demo"));
   else if (PARAMS.get("wish")) { con.wish = PARAMS.get("wish"); con.submit(); }
-  else con.focus();
+  else {
+    con.focus();
+    // uninvited: a breath of world zero, then one of its dreams begins on its own,
+    // so the page is moving before anyone has read a word. Typing first cancels it.
+    if (DEMOS.length && !PARAMS.has("still")) {
+      const pick = Math.floor(Math.random() * DEMOS.length);
+      const t = setTimeout(() => { if (state.worlds.length === 1 && !state.dreaming && !state.waking && !con.wish) { con._demo = pick; playDemo(pick); } }, 2600);
+      con.addEventListener("wish", () => clearTimeout(t), { once: true });
+      con.addEventListener("wake", () => clearTimeout(t), { once: true });
+    }
+  }
 })();

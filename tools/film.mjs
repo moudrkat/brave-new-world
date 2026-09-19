@@ -77,6 +77,11 @@ async function film() {
   const beats = [];
   const beat = (kind, extra = {}) => beats.push({ kind, t: now(), ...extra });
   await sleep(HOLD_ZERO);
+  // the page begins moving by itself: one of its remembered dreams. The film waits for it, then wakes the mind.
+  beat("uninvited");
+  for (let i = 0; i < 80; i++) { await sleep(250); if (await ev("window.__bnw.worlds.length > 1 && !window.__bnw.dreaming")) break; }
+  await describe();
+  await sleep(HOLD_WORLD);
 
   // wake: a click on the page's own button
   beat("wake");

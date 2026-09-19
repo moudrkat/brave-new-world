@@ -382,9 +382,11 @@ const SHAPES = {
 const GROUNDED = new Set(["mountain", "hill", "volcano", "pyramid", "iceberg", "dune", "tree", "pine", "palm", "birch", "flower", "mushroom", "reed", "lighthouse", "tower", "house", "temple", "skyline", "bridge", "arch", "column", "door", "tent", "windmill", "candle", "fire", "piano", "book", "mirror", "boat", "train", "swing", "cat", "deer", "person", "figure", "clock", "bell", "lantern"]);
 const GLOW = new Set(["sun", "moon", "star", "comet", "lantern", "candle", "fire", "window", "lighthouse", "planet", "fireflies", "jellyfish"]);
 
-function element(e, i, motion) {
+const MIRRORS = new Set(["sea", "water", "ice", "snow"]); // grounds that give things back
+function element(e, i, motion, ctx = {}) {
   const s = Math.max(SIZE[e.size], AT_LEAST[e.kind] || 0), n = e.count;
   const out = [];
+  const haze = { sky: 0.55, high: 0.35, horizon: 0.15, ground: 0, low: 0 }[e.y]; // far things fade into the sky
   const spread = n > 1 ? Math.min(36, 6 + n * 4) : 0;
   for (let k = 0; k < n; k++) {
     const t = n > 1 ? k / (n - 1) - 0.5 : 0;
@@ -393,7 +395,12 @@ function element(e, i, motion) {
     const y = Y[e.y] + jitter * (e.y === "sky" ? 12 : 5) - (n > 1 ? Math.abs(t) * 4 : 0);
     const sz = s * (n > 1 ? 0.7 + ((k * 31) % 7) / 14 : 1);
     const delay = ((i * 3 + k) * 0.7).toFixed(2);
-    out.push(`<svg class="el ${e.kind}${GLOW.has(e.kind) ? " glow" : ""}" data-kind="${e.kind}" data-index="${i}" viewBox="0 0 100 100" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${sz.toFixed(1)}vmin;--d:${delay}s;--c:${e.color};--dz:${DEPTH[e.y]}"><title>${e.kind}: walk to it</title>${SHAPES[e.kind](e.color)}</svg>`);
+    const big = ["mountain", "hill", "volcano", "skyline", "iceberg", "dune", "pyramid"].includes(e.kind);
+    const hz = big ? haze * 0.5 : haze;
+    if (GLOW.has(e.kind)) out.push(`<i class="bloom" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${(sz * 2.6).toFixed(1)}vmin;--c:${e.color};--dz:${DEPTH[e.y]};--d:${delay}s"></i>`);
+    out.push(`<svg class="el ${e.kind}${GLOW.has(e.kind) ? " glow" : ""}" data-kind="${e.kind}" data-index="${i}" viewBox="0 0 100 100" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${sz.toFixed(1)}vmin;--d:${delay}s;--c:${e.color};--dz:${DEPTH[e.y]};--haze:${hz}"><title>${e.kind}: walk to it</title>${SHAPES[e.kind](e.color)}</svg>`);
+    // a reflection: the same thing upside down below the horizon, faint, only where the ground is water or ice
+    if (ctx.mirror && e.y !== "low" && e.y !== "ground") { const my = ctx.horizon + (ctx.horizon - y) * 0.6; if (my < 100) out.push(`<svg class="el mirror ${e.kind}" viewBox="0 0 100 100" style="left:${x.toFixed(1)}%;top:${my.toFixed(1)}%;width:${sz.toFixed(1)}vmin;--d:${delay}s;--c:${e.color};--dz:${DEPTH[e.y]}" aria-hidden="true">${SHAPES[e.kind](e.color)}</svg>`); }
   }
   return out.join("");
 }
@@ -475,7 +482,8 @@ export function renderWorld(spec, { ghosts = [], certainty = null } = {}) {
   const conFg = { dark: "#efe6d6", light: "#1b1620", paper: "#2b2118", neon: "#e8ffb0" }[tone] || (panelLum > 0.45 ? "#1b1620" : "#efe6d6");
   const conAccent = (() => { const bgL = tone === "dark" || tone === "neon" ? 0.05 : tone === "light" || tone === "paper" ? 0.9 : panelLum; let a = s.accent; for (let i = 0; i < 5 && Math.abs(lum(a) - bgL) < 0.42; i++) a = mix(a, bgL > 0.5 ? "#000000" : "#ffffff", 0.3); return a; })();
   const haloDark = isDark ? "0 0 30px rgba(0,0,0,.45)" : "0 0 30px rgba(255,255,255,.5)";
-  const elements = s.elements.map((e, i) => element(e, i, s.motion)).join("") +
+  const ctx = { mirror: MIRRORS.has(s.ground), horizon };
+  const elements = s.elements.map((e, i) => element(e, i, s.motion, ctx)).join("") +
     ghosts.map((g) => { const e = s.elements[g.index]; if (!e || !SHAPES[g.kind]) return ""; const x = X[e.x] + 7, y = Y[e.y] - 3, sz = SIZE[e.size] * 0.9;
       return `<svg class="el ghost" data-ghost="${g.index}" data-kind="${g.kind}" viewBox="0 0 100 100" style="left:${x}%;top:${y}%;width:${sz}vmin;--gmax:${Math.min(0.45, g.p * 0.9 + 0.1).toFixed(2)};--c:${e.color};--dz:${DEPTH[e.y]}"><title>almost a ${g.kind} (${Math.round(g.p * 100)}%): walk into it</title>${SHAPES[g.kind](e.color)}</svg>`; }).join("");
 
@@ -490,7 +498,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
 body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-family: ${FONT[s.font]}; position: relative; }
 .ground { position: absolute; left: 0; right: 0; top: ${horizon}%; bottom: 0; ${groundCss(s)} }
 .haze { position: absolute; left: 0; right: 0; top: ${horizon - 14}%; height: 28%; background: linear-gradient(180deg, transparent, ${rgba(s.sky[s.sky.length - 1], 0.7)} 50%, transparent); pointer-events: none; }
-.el { position: absolute; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); overflow: visible; cursor: pointer; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
+.el { position: absolute; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); overflow: visible; cursor: pointer; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); opacity: calc(1 - var(--haze, 0) * 0.45); }
+.el.mirror { transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), -50%) scaleY(-1); opacity: 0.22; filter: blur(1.2px); pointer-events: none; mask-image: linear-gradient(to top, #000 20%, transparent 95%); -webkit-mask-image: linear-gradient(to top, #000 20%, transparent 95%); animation: shimmer calc(4s / var(--speed)) ease-in-out infinite alternate; }
+.bloom { position: absolute; aspect-ratio: 1; border-radius: 50%; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); background: radial-gradient(circle, var(--c) 0%, color-mix(in srgb, var(--c) 35%, transparent) 30%, transparent 62%); opacity: 0.55; mix-blend-mode: screen; pointer-events: none; animation: flicker calc(3s / var(--speed)) ease-in-out infinite alternate; animation-delay: var(--d); }
+.scene::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,0.22) 100%); pointer-events: none; }
+@keyframes shimmer { from { transform: translate(-50%, -50%) scaleY(-1) skewX(0.6deg); } to { transform: translate(-50%, -50%) scaleY(-1) skewX(-0.6deg); } }
 .el:hover { filter: drop-shadow(0 0 10px var(--c)); }
 .el.ghost { mix-blend-mode: screen; animation: ghost calc(5s / var(--speed)) ease-in-out infinite alternate; pointer-events: auto; }
 .el.ghost:hover { animation: none; opacity: 0.7; }
