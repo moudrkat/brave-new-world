@@ -516,6 +516,7 @@ body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-f
 .el.windmill { animation: none; }
 .words { position: absolute; ${textPos} max-width: min(46ch, 92vw); padding: 0 18px; text-shadow: ${haloDark}; transition: opacity 0.9s ease; }
 html.dreaming .words { opacity: 0.1; }
+.words { pointer-events: none; } .words .w, .words h1 { pointer-events: auto; }
 h1 { margin: 0 0 14px; font-weight: 300; font-size: ${titleSize}; letter-spacing: ${s.font === "mono" ? "0.06em" : "0.04em"}; line-height: 1.05; color: ${s.ink}; }
 h1::after { content: ""; display: block; width: 3em; height: 1px; margin: 16px auto 0; background: ${s.accent}; opacity: .8; }
 .words.left h1::after, .words.right h1::after { margin-left: ${s.text_place === "left" ? 0 : "auto"}; margin-right: ${s.text_place === "right" ? 0 : "auto"}; }

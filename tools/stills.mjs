@@ -30,5 +30,5 @@ function gif(kind, name, before = 1.2, after = 6.5, fps = 12, width = 720) {
   const size = execFileSync("stat", ["-c", "%s", `docs/${name}.gif`]).toString().trim();
   console.log(`docs/${name}.gif · ${sel.length} frames · ${(size / 1e6).toFixed(1)} MB`);
 }
-gif("uninvited", "opening", 0.4, 11.5, 10, 640); // the page beginning by itself: tokens, then a world
+gif("uninvited", "opening", 0.4, 9.5, 8, 560); // the page beginning by itself: tokens, then a world
 gif("door", "door");

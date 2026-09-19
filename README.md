@@ -21,6 +21,13 @@ Is it a shoggoth? Is a shoggoth building you a brave new world? Are you
 walking through the shoggoth itself? Or was the brave new world inside you all
 along?
 
+Who is the shoggoth here? Not only the thing in your pocket. You type one
+word and the world you get is made of your word and its habits, every choice
+at the probability it gave it, and the ghosts are the worlds you nearly got.
+Send the link and someone walks into your world with its doubts intact. And
+the brave new world is not the island or the desert. It is the moment one
+dissolves into the next, which nobody designed.
+
 You might think this is just playful nonsense. Which is, actually, what a
 brave new world can be.
 
@@ -33,6 +40,8 @@ and then nothing leaves your browser. Nothing leaves your brave new world.
 One button wakes the mind. No model to pick, no settings. Before you wake it,
 three worlds it already dreamt can be stepped into with nothing downloaded, on
 any browser, on a phone.
+
+![the page beginning by itself: tokens first, then a world](docs/opening.gif)
 
 ![a world, dreamed](docs/world.jpg)
 
@@ -196,6 +205,11 @@ their composed action on the follow-up set).
 - `eval.html`: the models, the wishes, one table. Results in `evals/`.
 - `tools/`: `drive.mjs` runs the app or the eval from a shell through Chrome;
   `film.mjs` records the real page for a post; `serve.py` serves without caching.
+- A hidden door: `?mind=http://host:8010/v1` makes the mind a server instead of
+  the tab, any OpenAI-compatible endpoint. A schema-aware one (vLLM,
+  llama.cpp) gets the world's schema as a constraint; one that only talks
+  (brainscope, with `?guided=0`) gets it in the prompt and the harness keeps
+  the rest. Then the world is here and the residual stream is over there.
 
 Prior art, for the curious: Google's Generative UI, Anthropic's Imagine with
 Claude and OpenUI's OUI-1 all have a large model write the interface on a

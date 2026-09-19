@@ -272,7 +272,7 @@ const HTML = `
 <div class="panel">
   <div class="top">
     <span class="brand">brave new world</span>
-    <span class="right"><span id="stats" class="stats" title="what it was thinking"></span><button id="share" class="link" type="button" title="the address bar holds this exact world: send it">link</button></span>
+    <span class="right"><span id="stats" class="stats" title="what it was thinking"></span><button id="share" class="link" type="button" title="the address bar holds this exact world, ghosts and doubts included: send it">send this world</button></span>
   </div>
   <div id="inside" class="inside closed">
     <canvas id="spark" class="spark" height="26"></canvas>
@@ -364,6 +364,7 @@ export class BnwConsole extends HTMLElement {
     this.temperature = 0.7;
     this.baseButton = "dream";
     this._fold = null;
+    this.statusAt = 0;
 
     this.$("ask").addEventListener("submit", (e) => {
       e.preventDefault();
@@ -481,8 +482,10 @@ export class BnwConsole extends HTMLElement {
     this.$("demos").hidden = this.awake || !list.length;
   }
 
+  get statusText() { return this.$("status").textContent; }
   setVeilNote(text) { this.$("veil-note").textContent = text || ""; }
-  setStatus(text, warn = false) {
+  setStatus(text, warn = false, quiet = false) {
+    if (!quiet) this.statusAt = performance.now(); // so a delayed hint does not talk over a fresh line
     if (this.dreaming) this.$("veil-note").textContent = text;
     this.$("status").textContent = text;
     this.$("status").classList.toggle("warn", warn);
@@ -617,6 +620,7 @@ export class BnwConsole extends HTMLElement {
       }
     }
     html += `<h4>the mind</h4><p class="arch">${esc(ARCH)}</p>`;
+    html += `<h4>who is the shoggoth</h4><p>The name people gave the thing under the chat window. Here there is no window: it is the thing dreaming, and you are standing in what it dreams. But look at what it is made of. Your word, its habits, and a coin at every choice, weighted the way it was weighted. The ghosts are the worlds you nearly got. Send the link and someone walks into your world with these doubts intact. The brave new world is not the island or the desert; it is the moment one dissolves into the next.</p>`;
     html += `<p class="honest">What it says about itself is all here: the probability of every token it wrote and of the words it did not. Its attention and activations stay inside the GPU; this runtime does not hand them out, and I would rather show you less than invent the rest.</p>`;
     this.$("head-body").innerHTML = html;
   }
@@ -683,13 +687,15 @@ function makeSky(c, host) {
     shog.t += dt * 0.001 * (1 + shog.jolt * 6 + (host.dreaming ? 1.5 : 0));
     shog.jolt *= Math.pow(0.5, dt / 400);
     shog.mouth *= Math.pow(0.5, dt / 3000);
-    // it drifts about the page, away from the console's side
-    if (Math.random() < 0.002 || (Math.abs(shog.x - shog.tx) < 0.01 && Math.abs(shog.y - shog.ty) < 0.01)) {
-      const side = small && (host.dataset.side === "left" || host.dataset.side === "right") ? "bottom" : host.dataset.side || "bottom";
+    // it drifts about the page, away from the console's side, and never under the panel
+    const side = small && (host.dataset.side === "left" || host.dataset.side === "right") ? "bottom" : host.dataset.side || "bottom";
+    const panelPx = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--bnw-panel")) || 0) + 30;
+    const underPanel = (fx, fy) => (side === "top" ? fy * H < panelPx : side === "bottom" ? fy * H > H - panelPx : side === "left" ? fx * W < Math.min(400, W * 0.92) : fx * W > W - Math.min(400, W * 0.92));
+    if (Math.random() < 0.002 || underPanel(shog.tx, shog.ty) || (Math.abs(shog.x - shog.tx) < 0.01 && Math.abs(shog.y - shog.ty) < 0.01)) {
       const words = host.dataset.words || "center";
       for (let tries = 0; tries < 12; tries++) {
         shog.tx = side === "left" ? rnd(0.55, 0.92) : side === "right" ? rnd(0.08, 0.45) : rnd(0.08, 0.92);
-        shog.ty = side === "top" ? rnd(0.45, 0.9) : side === "bottom" ? rnd(0.12, 0.5) : rnd(0.12, 0.85);
+        shog.ty = side === "top" ? rnd(Math.min(0.85, panelPx / H + 0.08), 0.9) : side === "bottom" ? rnd(0.12, Math.max(0.2, 1 - panelPx / H - 0.1)) : rnd(0.12, 0.85);
         // stay out of the words
         const inWords = words === "center" ? Math.abs(shog.tx - 0.5) < 0.25 && shog.ty > 0.15 && shog.ty < 0.6
           : words === "left" ? shog.tx < 0.45 : words === "right" ? shog.tx > 0.55
@@ -697,7 +703,7 @@ function makeSky(c, host) {
         if (!inWords) break;
       }
     }
-    const ease = 1 - Math.pow(0.5, dt / 6000);
+    const ease = 1 - Math.pow(0.5, dt / (underPanel(shog.x, shog.y) ? 900 : 6000));
     shog.x += (shog.tx - shog.x) * ease; shog.y += (shog.ty - shog.y) * ease;
     const cx = shog.x * W, cy = shog.y * H;
     const R = shog.r * (1 + shog.jolt * 0.5 + host.doubt * 0.8) * Math.min(1.4, Math.max(0.7, W / 1000));

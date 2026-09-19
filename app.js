@@ -1,4 +1,4 @@
-import { MODELS, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec, detemper } from "./mind.js";
+import { MODELS, WORLD_SCHEMA, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec, detemper } from "./mind.js";
 import { DEMOS } from "./demos.js";
 import "./console.js";
 
@@ -10,6 +10,14 @@ const MAX_RETRIES = 2;
 const MODEL = PARAMS.get("model") && MODELS.some((m) => m.id === PARAMS.get("model")) ? PARAMS.get("model") : MODELS[0].id;
 const STRATEGY = PARAMS.get("strategy") === "html" ? "html" : "spec";
 const WEBLLM = "https://esm.run/@mlc-ai/web-llm@0.2.85";
+// A hidden door. ?mind=http://host:8010/v1 makes the mind a server instead of
+// the tab: any OpenAI-compatible endpoint that streams. With a schema-aware
+// server (vLLM, llama.cpp) the world is constrained by WORLD_SCHEMA; with
+// brainscope the schema goes in the prompt and the harness keeps the rest.
+// ?mindmodel= names the model; ?guided=0 stops sending the schema.
+const MIND_URL = PARAMS.get("mind") ? PARAMS.get("mind").replace(/\/+$/, "") : null;
+const MIND_MODEL = PARAMS.get("mindmodel") || "default";
+const MIND_GUIDED = PARAMS.get("guided") !== "0";
 
 const con = document.querySelector("bnw-console");
 const worldStyle = document.getElementById("world-style");
@@ -63,6 +71,19 @@ function wake() {
         con.setStatus("awake · dry run, no model");
         return state.engine;
       }
+      if (MIND_URL) {
+        con.setWaking("reaching " + MIND_URL + "…");
+        const engine = remoteEngine(MIND_URL, MIND_MODEL);
+        const models = await engine.hello();
+        state.engine = engine;
+        state.modelId = models.includes(MIND_MODEL) || MIND_MODEL !== "default" ? MIND_MODEL : (models[0] || "default");
+        engine.model = state.modelId;
+        con.setAwake(true);
+        con.setStatus(`awake · a mind on ${new URL(MIND_URL).host} · ${state.modelId} · nothing here is in your browser except the page`);
+        con.focus();
+        scheduleAhead();
+        return state.engine;
+      }
       const modelId = await pickModel();
       const size = MB[modelId] ? `${MB[modelId]} MB` : "its weights";
       con.setWaking(`fetching ${size} once, into this browser's cache…`);
@@ -105,11 +126,14 @@ const designFor = (spec, certainty) => (spec ? { ...spec.console, next: spec.nex
 function applyWorld(html, opts = {}) {
   if (!html || html === applied) return;
   if (opts.partial || !document.startViewTransition || document.documentElement.classList.contains("low-power")) return swapWorld(html, opts);
+  const wasWorld = con.worldActive;
   const vt = document.startViewTransition(() => swapWorld(html, opts));
   // a browser that never gets round to capturing the old page would hold the
   // old page forever; after a moment the world is swapped without the fade
   const guard = setTimeout(() => vt.skipTransition(), 1800);
   vt.updateCallbackDone.finally(() => clearTimeout(guard)).catch(() => {});
+  // the brave new world is the moment one dissolves into the next; the status says so while it lasts
+  if (wasWorld) vt.ready.then(() => { const back = con.statusText; if (back.startsWith("between two worlds")) return; con.setStatus("between two worlds · this part nobody designed", false, true); setTimeout(() => { if (con.statusText.startsWith("between two worlds")) con.setStatus(back, false, true); }, 1700); }).catch(() => {});
 }
 function swapWorld(html, { partial = false } = {}) {
   applied = html;
@@ -273,10 +297,11 @@ async function dream(wish, fork = null) {
   clearTimeout(aheadTimer);
   const ready = !fork && aheadFor(wish);
   if (ready) return takeAhead(ready);
-  await cancelAhead();
+  // the page answers at once; a head start still running is let go while the veil rises
   state.dreaming = true;
   con.setDreaming(true);
   con.setStatus(fork ? `walking into the ghost of a ${fork.ghost.kind} · the same road up to the fork, then the other way` : "dreaming · " + wish);
+  await cancelAhead();
 
   const strategy = STRATEGY;
   let messages = fork ? fork.messages : messagesFor(wish, strategy);
@@ -337,7 +362,7 @@ async function dream(wish, fork = null) {
   scheduleAhead();
 }
 let hintTimer = null;
-function hintLater(text, ms = 7000) { clearTimeout(hintTimer); hintTimer = setTimeout(() => { if (!state.dreaming) con.setStatus(text); }, ms); }
+function hintLater(text, ms = 7000) { clearTimeout(hintTimer); hintTimer = setTimeout(() => { if (!state.dreaming && performance.now() - con.statusAt > 4000) con.setStatus(text); }, ms); }
 
 // the door you took was the one it expected: the world was dreamt while you looked
 function takeAhead(a) {
@@ -462,7 +487,7 @@ con.addEventListener("share", async () => {
   const url = location.href;
   try {
     if (navigator.share && matchMedia("(pointer: coarse)").matches) await navigator.share({ title: "Brave New World · " + w.wish, url });
-    else { await navigator.clipboard.writeText(url); con.setStatus("the link to this exact world is on your clipboard · it opens without a download"); }
+    else { await navigator.clipboard.writeText(url); con.setStatus("the link is on your clipboard: this exact world, its ghosts and its doubts · whoever opens it walks in without a download"); }
   } catch { con.setStatus("copy the address bar: it is the world"); }
 });
 
@@ -562,6 +587,52 @@ con.addEventListener("wish", (e) => {
 con.addEventListener("stop", () => { state.dreaming = false; replaying++; cancelAhead(); state.engine?.interruptGenerate(); document.querySelector(".scene")?.classList.remove("walking"); });
 
 /* ------------------------------------------------------------------ */
+/* a mind on a server: OpenAI-compatible, streamed, logprobs if it has them */
+/* ------------------------------------------------------------------ */
+
+function remoteEngine(base, model) {
+  let ctl = null;
+  const eng = {
+    model,
+    async hello() {
+      try { const r = await fetch(base + "/models"); const j = await r.json(); return (j.data || []).map((m) => m.id); } catch { return []; }
+    },
+    interruptGenerate() { ctl?.abort(); },
+    setInitProgressCallback() {},
+    async reload() {},
+    chat: { completions: { async *create(req) {
+      const body = { model: eng.model, messages: req.messages, stream: true, temperature: req.temperature, top_p: req.top_p, max_tokens: req.max_tokens, logprobs: true, top_logprobs: 5 };
+      // the grammar is WebLLM's; a server gets the same contract as a JSON schema, when asked to keep it
+      if (req.response_format?.type === "grammar" && MIND_GUIDED) body.response_format = { type: "json_schema", json_schema: { name: "world", schema: WORLD_SCHEMA, strict: false } };
+      ctl = new AbortController();
+      const r = await fetch(base + "/chat/completions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: ctl.signal });
+      if (!r.ok) throw new Error(`the mind at ${new URL(base).host} said ${r.status}: ${(await r.text()).slice(0, 200)}`);
+      // a server that does not stream (brainscope) answers whole: one chunk, its logprobs if it sent any
+      if (!/text\/event-stream/.test(r.headers.get("content-type") || "")) {
+        const j = await r.json(); const c = j.choices?.[0] || {};
+        yield { choices: [{ delta: { content: c.message?.content || "" }, logprobs: c.logprobs || null, finish_reason: c.finish_reason || "stop" }] };
+        return;
+      }
+      const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (data === "[DONE]") return;
+          try { yield JSON.parse(data); } catch {}
+        }
+      }
+    } } },
+  };
+  return eng;
+}
+
+/* ------------------------------------------------------------------ */
 /* a dry run for browsers without a GPU                                */
 /* ------------------------------------------------------------------ */
 
@@ -611,11 +682,11 @@ function mockEngine() {
 state.worlds.push({ wish: "world zero", html: worldZero.html, issues: [], retries: 0, zero: true });
 state.current = 0;
 con.renderHistory(state.worlds, 0, pick);
-con.setAwake(false, MOCK ? "dry run · no download" : navigator.gpu ? "300 MB once, then nothing leaves your device" : "needs WebGPU: Chrome, Edge or Safari 26 · the dreams below work here");
+con.setAwake(false, MOCK ? "dry run · no download" : MIND_URL ? "a mind on " + (() => { try { return new URL(MIND_URL).host; } catch { return MIND_URL; } })() + " · your wishes go there" : navigator.gpu ? "300 MB once, then nothing leaves your device" : "needs WebGPU: Chrome, Edge or Safari 26 · the dreams below work here");
 con.setStatus(MOCK ? "asleep · dry run" : "asleep · nothing downloaded yet");
 (async () => {
   const sent = location.hash.startsWith("#w=") ? await decodeWorld(location.hash.slice(3)) : null;
-  if (sent) return replay(sent, { label: `a world someone sent you · dreamt on ${(sent.date || "").slice(0, 10)} · ${sent.tokens.length} tokens in ${(sent.seconds || 0).toFixed(1)} s`, status: "someone sent you this world · its levers work · wake the mind to walk on" });
+  if (sent) return replay(sent, { label: `a world someone sent you · dreamt on ${(sent.date || "").slice(0, 10)} · ${sent.tokens.length} tokens in ${(sent.seconds || 0).toFixed(1)} s`, status: "someone sent you their world, doubts and all · its levers work · wake the mind to walk on" });
   if (PARAMS.get("demo") != null && DEMOS[+PARAMS.get("demo")]) playDemo(+PARAMS.get("demo"));
   else if (PARAMS.get("wish")) { con.wish = PARAMS.get("wish"); con.submit(); }
   else {

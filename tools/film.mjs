@@ -33,7 +33,7 @@ const TYPE_MS = 38, HOLD_ZERO = 1800, HOLD_WORLD = 3000, HOLD_LEVER = 2000, HOLD
 const LAST = "the brave new world"; // the film ends on whatever the model makes of its own title
 // the waiting runs faster than it happened; the typing and the worlds stay at 1x.
 // FILM_RATE=6 node tools/film.mjs --recompose out/brave-new-world re-cuts a take faster without re-recording
-const RATE_WAKE = 6, RATE_DREAM = +(process.env.FILM_RATE || 4.5);
+const RATE_WAKE = 6, RATE_DREAM = +(process.env.FILM_RATE || 4.5), RATE_HOLD = +(process.env.FILM_HOLD || 1); // FILM_HOLD=1.6 tightens the pauses on a world too
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const targets = async () => (await fetch(`http://localhost:${PORT}/json`)).json();
@@ -76,6 +76,7 @@ async function film() {
   const now = () => Date.now() / 1000;
   const beats = [];
   const beat = (kind, extra = {}) => beats.push({ kind, t: now(), ...extra });
+  const describe = async () => { const w = await ev(`JSON.stringify((w => ({ wish: w.wish, title: w.spec?.title, side: w.spec?.console.side, tone: w.spec?.console.tone, shape: w.spec?.console.shape, buttons: w.spec?.console.buttons, next: w.spec?.next, ghosts: (w.ghosts || []).map(g => g.kind), retries: w.retries, seconds: w.seconds, tokens: w.tokens?.length }))(window.__bnw.worlds.at(-1)))`); beat("world", { world: JSON.parse(w) }); console.log("  → " + w); };
   await sleep(HOLD_ZERO);
   // the page begins moving by itself: one of its remembered dreams. The film waits for it, then wakes the mind.
   beat("uninvited");
@@ -116,7 +117,6 @@ async function film() {
     throw new Error("the dream never ended");
   };
 
-  const describe = async () => { const w = await ev(`JSON.stringify((w => ({ wish: w.wish, title: w.spec?.title, side: w.spec?.console.side, tone: w.spec?.console.tone, shape: w.spec?.console.shape, buttons: w.spec?.console.buttons, next: w.spec?.next, ghosts: (w.ghosts || []).map(g => g.kind), retries: w.retries, seconds: w.seconds, tokens: w.tokens?.length }))(window.__bnw.worlds.at(-1)))`); beat("world", { world: JSON.parse(w) }); console.log("  → " + w); };
   // a solid lever, i.e. one that changes this world rather than asking for another
   const pressLever = async () => {
     const label = await ev(`(() => { const b = [...${CON}.shadowRoot.querySelectorAll(".act")].find(b => /set |add |remove |more |fewer /.test(b.title)); return b ? b.textContent : ""; })()`);
@@ -211,6 +211,7 @@ function compose() {
     if (b[i].kind === "wake") fast.push([b[i].t + 0.6, b[i + 1].t - 0.3, RATE_WAKE]);
     if (b[i].kind === "dream") fast.push([b[i].t + 1.5, b[i + 1].t - 1.2, RATE_DREAM]);
     if (b[i].kind === "ahead") fast.push([b[i].t + 1.0, b[i + 1].t - 0.6, RATE_DREAM]);
+    if (b[i].kind === "world" && b[i + 1] && RATE_HOLD !== 1) fast.push([b[i].t + 1.4, b[i + 1].t - 0.2, RATE_HOLD]);
   }
   const rateAt = (t) => { for (const [a, z, r] of fast) if (t >= a && t < z) return r; return 1; };
   let list = "ffconcat version 1.0\n", total = 0;
