@@ -21,13 +21,6 @@ Is it a shoggoth? Is a shoggoth building you a brave new world? Are you
 walking through the shoggoth itself? Or was the brave new world inside you all
 along?
 
-Who is the shoggoth here? Not only the thing in your pocket. You type one
-word and the world you get is made of your word and its habits, every choice
-at the probability it gave it, and the ghosts are the worlds you nearly got.
-Send the link and someone walks into your world with its doubts intact. And
-the brave new world is not the island or the desert. It is the moment one
-dissolves into the next, which nobody designed.
-
 You might think this is just playful nonsense. Which is, actually, what a
 brave new world can be.
 
