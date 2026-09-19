@@ -85,5 +85,11 @@ the browser cache. `?mock` dry-runs without a GPU, `?wish=…` dreams on load,
 python3 tools/serve.py 8765     # then open http://localhost:8765
 ```
 
+A hidden door: `?mind=http://host:8010/v1` makes the mind any
+OpenAI-compatible server instead of the tab (vLLM, llama.cpp, or brainscope
+with `--cors` and `&guided=0`), so a model that would never fit in a browser
+can dream the same worlds, and with brainscope its residual stream plays on
+the other screen. The diagram and the why are in the GitHub README.
+
 Built with [WebLLM](https://github.com/mlc-ai/web-llm). Code and evals:
 https://github.com/moudrkat/brave-new-world
