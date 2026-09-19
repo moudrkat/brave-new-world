@@ -778,7 +778,7 @@ export function surprise(spec, index, rnd = Math.random) {
     volcano: () => { n.ground = "lava"; n.weather = "embers"; return "the volcano had been waiting for this"; },
     whale: () => { n.ground = "sea"; e.size = "huge"; return "the whale wanted more sea, and got it"; },
     fish: () => { e.count = 13; n.weather = "bubbles"; return "a shoal"; },
-    star: () => { n.weather = "stars"; e.count = 13; return "the sky filled with them"; },
+    star: () => { n.weather = "stars"; e.count = 13; e.size = "small"; return "the sky filled with them"; },
     comet: () => { n.motion = "restless"; return "the comet woke everything up"; },
     bell: () => { n.motion = n.motion === "still" ? "restless" : "still"; return "the bell rang and the world " + (n.motion === "still" ? "held its breath" : "stirred"); },
     clock: () => { const t = TIMES[(TIMES.indexOf(n.time) + 1) % TIMES.length]; Object.assign(n, applyAction(n, "set time " + t)); return "the clock skipped to " + t; },
