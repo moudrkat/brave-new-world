@@ -63,6 +63,17 @@ async function film() {
   await s.send("Page.bringToFront");
   await sleep(2500);
   const CON = `document.querySelector("bnw-console")`;
+  // a screencast shows no pointer, so every press draws its own: a ring that expands where the finger landed
+  await ev(`(() => { const st = document.createElement("style"); st.textContent = ".film-ring{position:fixed;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,.35),0 0 18px rgba(255,255,255,.8);pointer-events:none;z-index:2147483646;animation:film-ring .8s ease-out forwards}@keyframes film-ring{from{transform:scale(.4);opacity:1}to{transform:scale(3.2);opacity:0}}"; document.head.appendChild(st); window.__ring = (x, y) => { const r = document.createElement("i"); r.className = "film-ring"; r.style.left = x + "px"; r.style.top = y + "px"; document.body.appendChild(r); setTimeout(() => r.remove(), 900); }; })()`);
+  const press = async (x, y) => {
+    await ev(`window.__ring && window.__ring(${x}, ${y})`);
+    await sleep(350);
+    if (VIEW.mobile) { await s.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] }); await s.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); }
+    else { await s.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }); await s.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 }); await s.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }); }
+  };
+  // the centre of the first element matching a selector that is really under the cursor there
+  const spot = async (sel, root = "document") => JSON.parse(await ev(`JSON.stringify((() => { for (const el of ${root}.querySelectorAll(${JSON.stringify(sel)})) { const b = el.getBoundingClientRect(); if (b.width < 4) continue; for (let gy = 0.25; gy <= 0.75; gy += 0.25) for (let gx = 0.25; gx <= 0.75; gx += 0.25) { const x = b.x + b.width * gx, y = b.y + b.height * gy; const h = document.elementFromPoint(x, y); if (h && (h === el || el.contains(h))) return { x, y }; } } return null; })())`));
+  const pressSel = async (sel, root = "document") => { const p = await spot(sel, root); if (!p) return false; await press(p.x, p.y); return true; };
 
   // the camera
   const frames = []; let n = 0;
@@ -86,7 +97,7 @@ async function film() {
 
   // wake: a click on the page's own button
   beat("wake");
-  await ev(`${CON}.shadowRoot.getElementById("wake").click()`);
+  if (!(await pressSel("#wake", `${CON}.shadowRoot`))) await ev(`${CON}.shadowRoot.getElementById("wake").click()`);
   for (let i = 0; i < 900; i++) { if (await ev("!!window.__bnw.engine")) break; await sleep(500); }
   if (!(await ev("!!window.__bnw.engine"))) throw new Error("the mind did not wake");
   beat("awake");
@@ -96,6 +107,7 @@ async function film() {
   // input layer when the window has focus, through the DOM when it does not
   const type = async (text) => {
     const INPUT = `${CON}.shadowRoot.getElementById("wish")`;
+    await pressSel("#wish", `${CON}.shadowRoot`);
     await ev(`${INPUT}.focus()`);
     let dom = false;
     for (const ch of text) {
@@ -118,21 +130,26 @@ async function film() {
   };
 
   // a solid lever, i.e. one that changes this world rather than asking for another
+  // a lever hangs in the world now: press one that changes this world, visibly
   const pressLever = async () => {
-    const label = await ev(`(() => { const b = [...${CON}.shadowRoot.querySelectorAll(".act")].find(b => /set |add |remove |more |fewer /.test(b.title)); return b ? b.textContent : ""; })()`);
+    const label = await ev(`(() => { const l = [...document.querySelectorAll(".lever")].find(l => /^set |^add |^remove |^more |^fewer /.test(l.dataset.action)); return l ? l.querySelector(".tag").textContent : ""; })()`);
     if (!label) return false;
     beat("lever", { label });
-    await ev(`[...${CON}.shadowRoot.querySelectorAll(".act")].find(b => b.textContent === ${JSON.stringify(label)}).click()`);
+    const p = await spot(".lever .tag");
+    if (p) await press(p.x, p.y); else await ev(`[...document.querySelectorAll(".lever")].find(l => l.querySelector(".tag").textContent === ${JSON.stringify(label)}).click()`);
     await sleep(HOLD_LEVER);
     console.log(`  pressed "${label}"`);
     return true;
   };
+  // a thing tapped: a surprise; the ground tapped: something grows
+  const tapThing = async () => { const p = await spot(".el:not(.ghost):not(.mirror)"); if (!p) return false; beat("surprise"); await press(p.x, p.y); await sleep(HOLD_LEVER); return true; };
+  const tapGround = async () => { const g = JSON.parse(await ev(`JSON.stringify(document.querySelector(".ground")?.getBoundingClientRect() || null)`)); if (!g) return false; beat("sprout"); await press(VIEW.width * 0.3, Math.min(g.top + 40, VIEW.height * 0.62)); await sleep(HOLD_LEVER); return true; };
   const walkIntoGhost = async () => {
     const kind = await ev(`document.querySelector(".el.ghost")?.dataset.kind || ""`);
     if (!kind) return false;
     beat("ghost", { ghostKind: kind });
     const before = await count();
-    await ev(`(() => { const g = document.querySelector(".el.ghost"); const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
+    if (!(await pressSel(".el.ghost"))) await ev(`(() => { const g = document.querySelector(".el.ghost"); const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
     beat("dream", { wish: "ghost: " + kind });
     await waitDream(before);
     await describe();
@@ -153,16 +170,16 @@ async function film() {
     return true;
   };
   const takeDoor = async () => {
-    if (!(await ev(`!!${CON}.shadowRoot.querySelector(".door")`))) return false;
-    // the door it was surest of is being dreamt ahead: wait for it, so the film shows a world that was there before it was chosen
+    if (!(await ev(`!!document.querySelector(".sign")`))) return false;
+    // the door is being dreamt ahead: wait for it, so the film shows a world that was there before it was chosen
     beat("ahead");
-    for (let i = 0; i < 120; i++) { if (await ev(`!!${CON}.shadowRoot.querySelector(".door.ready")`)) break; await sleep(400); }
-    const ready = await ev(`!!${CON}.shadowRoot.querySelector(".door.ready")`);
-    const door = await ev(`(${CON}.shadowRoot.querySelector(".door.ready") || ${CON}.shadowRoot.querySelector(".door")).textContent`);
+    for (let i = 0; i < 120; i++) { if (await ev(`!!document.querySelector(".sign.ready")`)) break; await sleep(400); }
+    const ready = await ev(`!!document.querySelector(".sign.ready")`);
+    const door = await ev(`document.querySelector(".sign")?.dataset.wish || ""`);
     beat("door", { door, ready });
     await sleep(900);
     const before = await count();
-    await ev(`(${CON}.shadowRoot.querySelector(".door.ready") || ${CON}.shadowRoot.querySelector(".door")).click()`);
+    if (!(await pressSel(".sign .board"))) await ev(`document.querySelector(".sign")?.click()`);
     beat("dream", { wish: "door: " + door });
     await waitDream(before);
     await describe();
@@ -178,14 +195,14 @@ async function film() {
     await waitDream(before);
     await describe();
     await sleep(HOLD_WORLD);
-    if (k === 0) { await pressLever(); await walkToThing(); }
+    if (k === 0) { await pressLever(); await tapThing(); await tapGround(); }
     if (k === 1) { if (!(await walkIntoGhost())) await pressLever(); }
   }
   if (!(await takeDoor())) { beat("type", { wish: "a desert at noon, three black pyramids" }); const before = await count(); await type("a desert at noon, three black pyramids"); beat("dream", {}); await waitDream(before); await describe(); await sleep(HOLD_WORLD); }
   // where it all leads: the model's own answer to the title, whatever it is
   { beat("type", { wish: LAST }); const before = await count(); await type(LAST); beat("dream", { wish: LAST }); await waitDream(before); await describe(); await sleep(HOLD_WORLD + 800); }
   // and a look inside its head, on where it doubted
-  { const at = JSON.parse(await ev(`JSON.stringify(${CON}.sky.shogAt())`)); beat("head", { at }); await s.send("Input.dispatchMouseEvent", { type: "mousePressed", x: at.x, y: at.y, button: "left", clickCount: 1 }); await s.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: at.x, y: at.y, button: "left", clickCount: 1 }); await sleep(300); if (!(await ev(`!${CON}.shadowRoot.getElementById("head").hidden`))) await ev(`${CON}.openHead(true)`); await sleep(HOLD_HEAD); }
+  { const at = JSON.parse(await ev(`JSON.stringify(${CON}.sky.shogAt())`)); beat("head", { at }); await press(at.x, at.y); await sleep(300); if (!(await ev(`!${CON}.shadowRoot.getElementById("head").hidden`))) await ev(`${CON}.openHead(true)`); await sleep(HOLD_HEAD); }
   await sleep(HOLD_END);
   beat("end");
   await s.send("Page.stopScreencast");
