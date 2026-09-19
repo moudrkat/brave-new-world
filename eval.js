@@ -106,8 +106,10 @@ async function run() {
       r.retried = false;
       if (report.fatal && !stop) {
         say(`${meta.label} · ${i + 1}/${n} · broken (${r.issues.join(", ")}), asking again`);
-        const again = await dream(id, wish, maxTokens, seed + i + 1000, temperature, strategy, [
-          { role: "assistant", content: r.raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }]);
+        // a fresh start, as in the app: new shuffle, cooler, the broken attempt out of sight (spec); the html path keeps the old exchange
+        const again = strategy === "spec"
+          ? await dream(id, wish, maxTokens, seed + i + 1000, 0.7, strategy, [], true)
+          : await dream(id, wish, maxTokens, seed + i + 1000, temperature, strategy, [{ role: "assistant", content: r.raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }]);
         r.retried = true;
         r.retryRaw = again.raw;
         r.tokens += again.tokens;
@@ -146,12 +148,12 @@ async function run() {
   try { await engine?.unload(); engine = null; } catch {}
 }
 
-async function dream(modelId, wish, maxTokens, seed, temperature, strategy, extraMessages = []) {
+async function dream(modelId, wish, maxTokens, seed, temperature, strategy, extraMessages = [], forceTemp = false) {
   const prior = SET === "followups" && strategy === "spec" ? [{ role: "user", content: PRIOR.wish }, { role: "assistant", content: JSON.stringify(PRIOR.spec) }] : [];
   const messages = [{ role: "system", content: systemFor(strategy, { example: EXAMPLE }) }, ...prior, { role: "user", content: userMessage(wish, strategy, { hints: PARAMS.get("hints") === "1" }) }, ...extraMessages];
   const extra = { seed, logprobs: false, top_logprobs: undefined };
   if (strategy === "html") extra.max_tokens = maxTokens;
-  if (strategy === "html" || PARAMS.has("temp")) extra.temperature = temperature;
+  if (strategy === "html" || PARAMS.has("temp") || forceTemp) extra.temperature = temperature;
   const req = requestFor(modelId, messages, extra, strategy);
   delete req.top_logprobs;
   let raw = "", tokens = 0, finish = null, usage = null;

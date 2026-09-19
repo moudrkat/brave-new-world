@@ -194,8 +194,8 @@ function messagesFor(wish, strategy) {
   return msgs;
 }
 
-async function generate(engine, messages, wish, strategy, grammar = null, quiet = false) {
-  const request = requestFor(state.modelId || MODEL, messages, {}, strategy);
+async function generate(engine, messages, wish, strategy, grammar = null, quiet = false, extra = {}) {
+  const request = requestFor(state.modelId || MODEL, messages, extra, strategy);
   if (grammar) request.response_format = { type: "grammar", grammar };
   if (!quiet) con.temperature = request.temperature;
   let raw = "", n = 0, finish = null, lastPaint = 0;
@@ -282,7 +282,7 @@ async function dream(wish, fork = null) {
   const attempts = [];
   try {
     for (;;) {
-      out = await generate(engine, messages, wish, strategy, grammar);
+      out = await generate(engine, messages, wish, strategy, grammar, false, retries ? { temperature: 0.7 } : {});
       raw = out.raw;
       report = dreamToPage(raw, wish, out.finish, strategy, out.tokens);
       attempts.push({ raw, finish: out.finish, tokens: out.n, seconds: out.seconds, issues: report.issues });
@@ -296,7 +296,8 @@ async function dream(wish, fork = null) {
       if (!report.fatal || retries >= MAX_RETRIES || !state.dreaming || fork) break;
       retries++;
       con.setStatus(`the page came back broken (${bad.join(", ")}), asking again · ${retries}/${MAX_RETRIES}`);
-      messages = [...messages, { role: "assistant", content: raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }];
+      // not shown its broken attempt: shown it, a small model copies it back at near-total certainty
+      messages = strategy === "spec" ? messagesFor(wish, strategy) : [...messages, { role: "assistant", content: raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }];
       con.setDreaming(true);
     }
   } catch (err) {
