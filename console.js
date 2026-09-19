@@ -62,6 +62,18 @@ const CSS = `
 :host-context(html.low-power) .panel { backdrop-filter: none; -webkit-backdrop-filter: none; }
 
 .sky { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+
+/* ---- the veil: while it dreams, the tokens are the show, across the whole page ---- */
+.veil { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8vh 6vw; opacity: 0; transition: opacity 1.2s ease; background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 78%, transparent), transparent 72%); }
+.veil.on { opacity: 1; }
+:host([data-side="top"]) .veil { justify-content: flex-end; padding-bottom: 12vh; }
+:host([data-side="bottom"]) .veil, :host(:not([data-side])) .veil { justify-content: flex-start; padding-top: 12vh; }
+.veil-inner { max-width: 62ch; font-family: var(--mono); font-size: clamp(15px, 2.1vw, 26px); line-height: 1.55; white-space: pre-wrap; word-break: break-word; text-align: left; mask-image: linear-gradient(to bottom, transparent 0, #000 18%, #000 100%); -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18%, #000 100%); max-height: 46vh; overflow: hidden; display: flex; flex-wrap: wrap; align-content: flex-end; }
+.veil .tok { animation: land 0.5s ease-out; text-shadow: 0 0 calc(18px * (1 - var(--p))) var(--tok, transparent); }
+.veil-note { margin-top: 3vh; font-family: var(--font); font-style: italic; font-size: clamp(14px, 1.6vw, 19px); color: var(--dim); text-align: center; max-width: 60ch; }
+@keyframes land { from { opacity: 0; filter: blur(4px); transform: translateY(4px); } to { filter: blur(0); transform: none; } }
+@media (max-width: 720px) { .veil { padding: 6vh 16px; } .veil-inner { font-size: 14px; max-height: 40vh; } :host([data-side="bottom"]) .veil, :host(:not([data-side])) .veil { padding-top: 9vh; } }
+@media (prefers-reduced-motion: reduce) { .veil .tok { animation: none; } }
 .panel {
   position: relative;
   z-index: 1;
@@ -228,6 +240,7 @@ button.go:hover { text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 70%, tr
 
 const HTML = `
 <canvas class="sky" aria-hidden="true"></canvas>
+<div id="veil" class="veil" aria-hidden="true"><div id="veil-inner" class="veil-inner"></div><div id="veil-note" class="veil-note"></div></div>
 <div class="panel">
   <div class="top">
     <span class="brand">brave new world</span>
@@ -382,7 +395,9 @@ export class BnwConsole extends HTMLElement {
     this.$("demos").hidden = this.awake || !list.length;
   }
 
+  setVeilNote(text) { this.$("veil-note").textContent = text || ""; }
   setStatus(text, warn = false) {
+    if (this.dreaming) this.$("veil-note").textContent = text;
     this.$("status").textContent = text;
     this.$("status").classList.toggle("warn", warn);
     document.title = "Brave New World · " + text;
@@ -395,8 +410,9 @@ export class BnwConsole extends HTMLElement {
     this.$("wish").disabled = on;
     this.$("go").textContent = on ? "wake me" : this.baseButton;
     clearTimeout(this._fold);
-    if (on) { this.probs = []; this.$("ribbon-inner").textContent = ""; this.$("harness").textContent = ""; this.$("stats").textContent = ""; this.openInside(true); }
-    else this._fold = setTimeout(() => this.openInside(false), 6000);
+    document.documentElement.classList.toggle("dreaming", on); // the page's own words step back while the veil is up
+    if (on) { this.probs = []; this.$("ribbon-inner").textContent = ""; this.$("veil-inner").textContent = ""; this.$("harness").textContent = ""; this.$("stats").textContent = ""; this.openInside(true); this.$("veil").classList.add("on"); }
+    else { this.$("veil").classList.remove("on"); this._fold = setTimeout(() => this.openInside(false), 6000); }
   }
   openInside(open) {
     this.$("inside").classList.toggle("closed", !open);
@@ -425,6 +441,9 @@ export class BnwConsole extends HTMLElement {
     const inner = this.$("ribbon-inner");
     inner.appendChild(span);
     while (inner.childNodes.length > 600) inner.removeChild(inner.firstChild);
+    const veil = this.$("veil-inner");
+    veil.appendChild(span.cloneNode(true));
+    while (veil.childNodes.length > 260) veil.removeChild(veil.firstChild);
     this.probs.push(p);
     this.doubt = this.doubt * 0.92 + (1 - p) * 0.08;
     this.sky.spark(p);

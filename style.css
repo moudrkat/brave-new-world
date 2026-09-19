@@ -85,4 +85,8 @@ bnw-console { view-transition-name: console; }
 ::view-transition-old(console), ::view-transition-new(console) { animation-duration: 0.9s; }
 @media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 0.01s !important; } }
 
+/* while the mind dreams, the page's own words step back behind the veil of tokens */
+body.world-zero .veil-line, body.world-zero .veil-sub, body.world-zero .dedication { transition: opacity 0.9s ease; }
+html.dreaming body.world-zero .veil-line, html.dreaming body.world-zero .veil-sub, html.dreaming body.world-zero .dedication { opacity: 0.1; }
+
 html.low-power * { animation: none !important; filter: none !important; text-shadow: none !important; }
