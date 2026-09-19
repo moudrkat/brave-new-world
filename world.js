@@ -735,7 +735,7 @@ export const EXAMPLE_MARKS = (() => {
 // Given the wish, it checks against the example that wish was actually shown.
 export function originality(spec, wish = null, salt = 0) {
   if (!spec) return null;
-  const MARKS = wish != null ? new Set([...marksOf(exampleFor(wish, salt)), ...EXAMPLE_MARKS]) : EXAMPLE_MARKS;
+  const MARKS = wish != null ? new Set([...marksOf(exampleFor(wish, salt)[1]), ...EXAMPLE_MARKS]) : EXAMPLE_MARKS;
   const marks = [];
   for (const c of [...spec.sky, spec.ground_color, spec.ink, spec.accent, ...spec.elements.map((e) => e.color)]) marks.push("c:" + c);
   for (const w of (spec.title + " " + spec.lines.join(" ")).toLowerCase().split(/[^a-z]+/)) if (w.length > 4) marks.push("w:" + w);
