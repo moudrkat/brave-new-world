@@ -377,6 +377,7 @@ async function replay(d, { label, status }) {
   const spec = normalizeSpec(d.spec);
   const html = renderWorld(spec, { ghosts: d.ghosts || [], certainty: d.certainty || null });
   designOf = designFor(spec, d.certainty);
+  state.dreaming = true; // a replay holds the page like a dream does
   con.setDreaming(true);
   con.setStatus("remembering · " + d.wish);
   // the tokens it wrote that day, at their real certainties, faster than it wrote them
@@ -385,7 +386,7 @@ async function replay(d, { label, status }) {
   let prefix = "";
   const pace = Math.max(6, Math.min(24, 7000 / Math.max(1, toks.length))); // about seven seconds, whatever it wrote
   for (let k = 0; k < toks.length; k++) {
-    if (token !== replaying) return;
+    if (token !== replaying) { state.dreaming = false; return; }
     const t = toks[k];
     con.paintToken(t.token, t.p, t.alts || [{ token: t.token, p: t.p }], prefix);
     prefix += t.token;

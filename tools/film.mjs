@@ -29,7 +29,8 @@ const WISHES = [
   "a neon city in the rain, everything reflects",
   "a forest of white birches under snow, one red bird",
 ];
-const TYPE_MS = 38, HOLD_ZERO = 1800, HOLD_WORLD = 3000, HOLD_LEVER = 2000, HOLD_END = 2600;
+const TYPE_MS = 38, HOLD_ZERO = 1800, HOLD_WORLD = 3000, HOLD_LEVER = 2000, HOLD_END = 1200, HOLD_HEAD = 4200;
+const LAST = "the brave new world"; // the film ends on whatever the model makes of its own title
 // the waiting runs faster than it happened; the typing and the worlds stay at 1x.
 // FILM_RATE=6 node tools/film.mjs --recompose out/brave-new-world re-cuts a take faster without re-recording
 const RATE_WAKE = 6, RATE_DREAM = +(process.env.FILM_RATE || 4.5);
@@ -176,6 +177,10 @@ async function film() {
     if (k === 1) { if (!(await walkIntoGhost())) await pressLever(); }
   }
   if (!(await takeDoor())) { beat("type", { wish: "a desert at noon, three black pyramids" }); const before = await count(); await type("a desert at noon, three black pyramids"); beat("dream", {}); await waitDream(before); await describe(); await sleep(HOLD_WORLD); }
+  // where it all leads: the model's own answer to the title, whatever it is
+  { beat("type", { wish: LAST }); const before = await count(); await type(LAST); beat("dream", { wish: LAST }); await waitDream(before); await describe(); await sleep(HOLD_WORLD + 800); }
+  // and a look inside its head, on where it doubted
+  { const at = JSON.parse(await ev(`JSON.stringify(${CON}.sky.shogAt())`)); beat("head", { at }); await s.send("Input.dispatchMouseEvent", { type: "mousePressed", x: at.x, y: at.y, button: "left", clickCount: 1 }); await s.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: at.x, y: at.y, button: "left", clickCount: 1 }); await sleep(300); if (!(await ev(`!${CON}.shadowRoot.getElementById("head").hidden`))) await ev(`${CON}.openHead(true)`); await sleep(HOLD_HEAD); }
   await sleep(HOLD_END);
   beat("end");
   await s.send("Page.stopScreencast");
