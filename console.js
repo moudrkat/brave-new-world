@@ -460,7 +460,7 @@ export class BnwConsole extends HTMLElement {
     }
     const doors = this.$("doors");
     doors.innerHTML = "";
-    if (d?.next?.length) {
+    if (false && d?.next?.length) {
       const lead = document.createElement("span"); lead.className = "lead"; lead.textContent = "doors"; doors.appendChild(lead);
       d.next.forEach((w, i) => {
         const el = document.createElement("button");

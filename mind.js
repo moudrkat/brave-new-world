@@ -1,5 +1,5 @@
-import { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom } from "./world.js";
-export { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom };
+import { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom, surprise, sprout, turnWeather, turnFont } from "./world.js";
+export { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom, surprise, sprout, turnWeather, turnFont };
 
 // The user turn: the wish, and (for the tools path) what the words plainly say.
 export function userMessage(wish, strategy, { hints = true } = {}) {
@@ -202,7 +202,7 @@ export const PRIOR = {
     elements: [{ kind: "sun", x: "center", y: "horizon", size: "large", color: "#ffb37a", count: 1 }, { kind: "lighthouse", x: "right", y: "horizon", size: "medium", color: "#f6e9dc", count: 1 }, { kind: "bird", x: "left", y: "high", size: "tiny", color: "#2b1b4e", count: 3 }, { kind: "boat", x: "far-left", y: "ground", size: "small", color: "#3a2a5e", count: 1 }],
     lines: ["The sea keeps its lavender secret.", "One lighthouse counts the evening slowly, and nobody asks it to hurry."],
     console: { side: "bottom", tone: "glass", shape: "soft", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "set time night" }, { label: "some rain", action: "set weather rain" }] },
-    next: ["the lighthouse keeper's room", "the same island at night", "a boat going out"] },
+    next: ["the same island at night"] },
 };
 export const FOLLOWUPS = [
   { wish: "make it night", expect: (s) => s.time === "night" },

@@ -1,4 +1,4 @@
-import { MODELS, WORLD_SCHEMA, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec, detemper } from "./mind.js";
+import { MODELS, WORLD_SCHEMA, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec, detemper, surprise, sprout, turnWeather, turnFont } from "./mind.js";
 import { DEMOS } from "./demos.js";
 import "./console.js";
 
@@ -33,6 +33,9 @@ const state = {
   lastRaw: "",
 };
 window.__bnw = state;
+
+// a view transition that gets skipped by the next one reports itself as an error; it is not one
+addEventListener("unhandledrejection", (e) => { if (e.reason?.name === "AbortError" && /transition/i.test(e.reason?.message || "")) e.preventDefault(); });
 
 // No WebGPU adapter means software rendering too: no animations, no filters.
 (async () => {
@@ -131,13 +134,14 @@ const designFor = (spec, certainty) => (spec ? { ...spec.console, next: spec.nex
 // put it now; a browser without the API just swaps.
 function applyWorld(html, opts = {}) {
   if (!html || html === applied) return;
-  if (opts.partial || !document.startViewTransition || document.documentElement.classList.contains("low-power")) return swapWorld(html, opts);
+  if (opts.partial || opts.quick || !document.startViewTransition || document.documentElement.classList.contains("low-power")) { swapWorld(html, opts); if (opts.quick) document.querySelector(".scene")?.classList.add("micro"); return; }
   const wasWorld = con.worldActive;
   const vt = document.startViewTransition(() => swapWorld(html, opts));
   // a browser that never gets round to capturing the old page would hold the
   // old page forever; after a moment the world is swapped without the fade
   const guard = setTimeout(() => vt.skipTransition(), 1800);
   vt.updateCallbackDone.finally(() => clearTimeout(guard)).catch(() => {});
+  vt.finished.catch(() => {}); // a skipped transition is not an error
   // the brave new world is the moment one dissolves into the next; the status says so while it lasts
   if (wasWorld) vt.ready.then(() => { const back = con.statusText; if (back.startsWith("between two worlds")) return; con.setStatus("between two worlds · this part nobody designed", false, true); setTimeout(() => { if (con.statusText.startsWith("between two worlds")) con.setStatus(back, false, true); }, 1700); }).catch(() => {});
 }
@@ -160,6 +164,7 @@ function swapWorld(html, { partial = false } = {}) {
   if (words) con.dataset.words = words; else delete con.dataset.words;
   if (!partial) con.applyDesign(designOf ? designOf : side === "top" ? { side: "top" } : null);
   window.scrollTo(0, 0);
+  paintSigns();
 }
 
 // The model may set --bnw-* on :root. When it did not, the console takes the
@@ -262,40 +267,68 @@ async function generate(engine, messages, wish, strategy, grammar = null, quiet 
 // it and the world is already there; take any other road and the head start
 // is thrown away. The world after this one exists before you choose it, at
 // the probability the model gave it.
-let ahead = null; // { wish, base, promise, done, result, cancelled }
+let aheads = []; // for the world on screen: { wish, base, promise, done, result, cancelled, p, started }
+let ahead = null; // the one being dreamt right now
+let dreamSecs = 30; // what a dream has been taking here, for the price on the signs
 function dreamAhead() {
   const cur = state.worlds[state.current];
-  if (!state.engine || state.dreaming || STRATEGY !== "spec" || !cur?.spec?.next?.length || cur.zero) return;
+  if (!state.engine || state.dreaming || ahead || STRATEGY !== "spec" || !cur?.spec?.next?.length || cur.zero) return;
+  aheads = aheads.filter((a) => a.base === state.current && !a.cancelled);
   const ps = cur.certainty?.doors || [];
-  let best = 0;
-  for (let i = 1; i < cur.spec.next.length; i++) if ((ps[i] ?? 0) > (ps[best] ?? 0)) best = i;
-  const wish = cur.spec.next[best];
-  if (ahead && ahead.wish === wish && ahead.base === state.current && !ahead.cancelled) return;
-  cancelAhead();
+  // the doors in the order it believed in them; the first not yet dreamt is next
+  const order = cur.spec.next.map((w, i) => [w, ps[i] ?? 0]).sort((x, y) => y[1] - x[1]);
+  const next = order.find(([w]) => !aheads.some((a) => a.wish === w));
+  if (!next) return;
+  const [wish, p] = next;
   const messages = messagesFor(wish, STRATEGY);
-  const a = { wish, base: state.current, done: false, result: null, cancelled: false, p: ps[best] };
-  ahead = a;
-  con.markDoor(wish, "ahead");
+  const a = { wish, base: state.current, done: false, result: null, cancelled: false, p, started: performance.now() };
+  aheads.push(a); ahead = a;
+  paintSigns();
   a.promise = generate(state.engine, messages, wish, STRATEGY, null, true).then((out) => {
     if (a.cancelled) return;
     a.result = { out, report: dreamToPage(out.raw, wish, out.finish, STRATEGY, out.tokens), messages };
     a.done = true;
-    if (ahead === a && state.current === a.base) { con.markDoor(wish, "ready"); if (!state.dreaming) con.setStatus(`the door it thought you would take is already dreamt · "${wish}"` + (a.p != null ? ` · it was ${Math.round(a.p * 100)}% sure` : "")); }
-  }).catch(() => { a.cancelled = true; }).finally(() => { if (ahead === a && !a.done) ahead = null; });
+    if (state.current === a.base && !state.dreaming && aheads.filter((x) => x.done).length === 1) con.setStatus(`the door it thought you would take is already dreamt · "${wish}"` + (p ? ` · it was ${Math.round(p * 100)}% sure` : ""));
+  }).catch(() => { a.cancelled = true; }).finally(() => {
+    if (ahead === a) ahead = null;
+    paintSigns();
+    if (!a.cancelled && state.current === a.base && !state.dreaming) scheduleAhead(); // and the next door
+  });
 }
 function cancelAhead() {
-  if (!ahead) return Promise.resolve();
   const a = ahead;
   ahead = null;
-  con.markDoor(null, null);
-  if (a.done) return Promise.resolve();
+  aheads = aheads.filter((x) => x.done && !x.cancelled);
+  paintSigns();
+  if (!a || a.done) return Promise.resolve();
   a.cancelled = true;
   state.engine?.interruptGenerate();
   return a.promise.catch(() => {});
 }
-const aheadFor = (wish) => (ahead && ahead.done && !ahead.cancelled && ahead.wish === wish && ahead.base === state.current ? ahead : null);
+const aheadFor = (wish) => aheads.find((a) => a.done && !a.cancelled && a.wish === wish && a.base === state.current) || null;
 let aheadTimer = null;
-const scheduleAhead = () => { clearTimeout(aheadTimer); aheadTimer = setTimeout(dreamAhead, 1500); };
+const scheduleAhead = () => { clearTimeout(aheadTimer); aheadTimer = setTimeout(dreamAhead, 1200); };
+// the signs in the scene: which door is being dreamt, which is ready, and what each will cost
+let signTimer = null;
+function paintSigns() {
+  clearTimeout(signTimer);
+  const signs = document.querySelectorAll(".sign");
+  if (!signs.length) return;
+  let ticking = false;
+  for (const el of signs) {
+    const w = el.dataset.wish;
+    const a = aheads.find((x) => x.wish === w && x.base === state.current && !x.cancelled);
+    el.classList.toggle("ready", !!a?.done);
+    el.classList.toggle("ahead", !!a && !a.done);
+    const eta = el.querySelector(".eta");
+    if (!eta) continue;
+    if (a?.done) eta.textContent = "0 s · already dreamt";
+    else if (a) { const left = Math.max(1, Math.round(dreamSecs - (performance.now() - a.started) / 1000)); eta.textContent = `dreaming ahead · ~${left} s`; ticking = true; }
+    else eta.textContent = state.engine ? `~${Math.round(dreamSecs)} s` : `~${Math.round(dreamSecs)} s once awake`;
+  }
+  if (ticking) signTimer = setTimeout(paintSigns, 1000);
+}
+con.markDoor = () => {}; // the doors live in the world now
 
 // fork: { messages, raw, ghost } walks the model down its own road to the
 // ghost and makes it take the other turning; the rest is dreamt again.
@@ -360,6 +393,7 @@ async function dream(wish, fork = null) {
     raw, tokens: out?.tokens || [], messages: retries ? messages : asked, seconds: out?.seconds || 0, model: state.modelId, date: new Date().toISOString() });
   state.current = state.worlds.length - 1;
   con.renderHistory(state.worlds, state.current, pick);
+  if (out?.seconds) dreamSecs = dreamSecs * 0.5 + out.seconds * 0.5;
   state.dreaming = false;
   con.setDreaming(false);
   con.setStatus(`dreamt in ${((performance.now() - t0) / 1000).toFixed(1)} s` + (retries ? ` after ${retries} ${retries === 1 ? "retry" : "retries"}` : "") + (fork ? " · the road not taken" : " · the levers and the doors are its idea · tap a thing to walk to it"));
@@ -373,7 +407,7 @@ function hintLater(text, ms = 7000) { clearTimeout(hintTimer); hintTimer = setTi
 
 // the door you took was the one it expected: the world was dreamt while you looked
 function takeAhead(a) {
-  ahead = null;
+  aheads = aheads.filter((x) => x !== a);
   const { out, report, messages } = a.result;
   const t0 = performance.now();
   con.setDreaming(true);
@@ -521,14 +555,19 @@ async function act(action) {
   if (a.verb === "again") { con.wish = cur?.zero ? SURPRISES[0] : cur.wish; return con.submit(); }
   if (a.verb === "elsewhere") { con.wish = SURPRISES[Math.floor(Math.random() * SURPRISES.length)]; return con.submit(); }
   if (!cur?.spec) return con.setStatus("this world has no such lever");
-  const spec = applyAction(cur.spec, a);
+  change(applyAction(cur.spec, a), action, action + " · the model named this lever and composed what it does; the engine pulled it");
+}
+// an engine-side change to the world on screen: instant, remembered, no model
+function change(spec, note, status) {
+  const cur = state.worlds[state.current];
   const html = renderWorld(spec, { ghosts: cur.ghosts || [], certainty: cur.certainty || null });
-  state.worlds.push({ ...cur, spec, html, wish: cur.wish + " · " + action, zero: false, demo: false });
+  // the history keeps the wish and the latest change, not the whole chain of them
+  state.worlds.push({ ...cur, spec, html, wish: cur.wish.replace(/ · .*$/, "") + " · " + note.replace(/ · .*$/, "").slice(0, 40), zero: false, demo: false });
   state.current = state.worlds.length - 1;
   designOf = designFor(spec, cur.certainty);
-  applyWorld(html);
+  applyWorld(html, { quick: true });
   con.renderHistory(state.worlds, state.current, pick);
-  con.setStatus(action + " · the model named this lever and composed what it does; the engine pulled it");
+  con.setStatus(status || note);
   remember(state.worlds[state.current]);
   cancelAhead(); scheduleAhead();
 }
@@ -562,13 +601,39 @@ async function walkInto(index, kind, el) {
   const messages = cur.messages || [{ role: "system", content: systemFor("spec") }, { role: "user", content: userMessage(cur.wish, "spec") }];
   dream(cur.wish.replace(/ · .*$/, ""), { messages, raw: cur.raw, ghost }).catch((err) => { console.error(err); con.setStatus("the fork broke: " + (err?.message || err), true); state.dreaming = false; con.setDreaming(false); });
 }
+document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.classList?.contains("sign")) { e.preventDefault(); e.target.click(); } });
 document.addEventListener("click", (e) => {
   if (e.composedPath().includes(con)) return;
+  const sign = e.target.closest?.(".sign");
+  if (sign) { if (state.dreaming && !replayCtl) return; sign.classList.add("swing"); setTimeout(() => sign.classList.remove("swing"), 800); con.wish = sign.dataset.wish; return con.submit(); }
+  const scene = document.querySelector(".scene");
+  if (scene && !e.target.closest?.(".el, .words, .sign") && e.clientY < innerHeight * 0.7) {
+    // empty sky: a shooting star, for no reason but that it was tapped
+    const star = document.createElement("i"); star.className = "star-shot"; star.style.left = e.clientX + "px"; star.style.top = e.clientY + "px";
+    scene.appendChild(star); setTimeout(() => star.remove(), 1000);
+    con.sky.feed?.(0.6, 2);
+  }
   const g = e.target.closest?.(".el.ghost");
   if (g) return walkInto(+g.dataset.ghost, g.dataset.kind, g);
   const el = e.target.closest?.(".el");
-  if (el?.dataset.kind) return walkTo(el.dataset.kind, el);
+  const cur = state.worlds[state.current];
+  if (el?.dataset.kind && cur?.spec && !state.dreaming) {
+    // first tap: a surprise on the thing; a second tap on the same kind within a few seconds: walk there
+    if (lastTap.kind === el.dataset.kind && performance.now() - lastTap.at < 3500) { lastTap = {}; return walkTo(el.dataset.kind, el); }
+    lastTap = { kind: el.dataset.kind, at: performance.now() };
+    const s = surprise(cur.spec, +el.dataset.index);
+    if (s) change(s.spec, s.note, s.note + " · tap it again to walk there");
+    return;
+  }
+  const title = e.target.closest?.(".words h1");
+  if (title && cur?.spec && !state.dreaming) { const s = turnFont(cur.spec); return change(s.spec, s.note); }
+  if (e.target.closest?.(".words")) return;
+  const ground = document.querySelector(".ground");
+  if (cur?.spec && !state.dreaming && ground && e.clientY >= ground.getBoundingClientRect().top) { const s = sprout(cur.spec, e.clientX / innerWidth); return change(s.spec, s.note); }
+  skyTaps++;
+  if (cur?.spec && !state.dreaming && skyTaps % 3 === 0) { const s = turnWeather(cur.spec); change(s.spec, s.note); }
 });
+let lastTap = {}, skyTaps = 0;
 
 // Depth: the scene shifts a little with the pointer or the phone's tilt, far
 // things less than near ones (--dz per element, set by the painter).
@@ -662,7 +727,7 @@ function mockEngine() {
   const specDoc = JSON.stringify({ title: "A Quiet Island", time: "dusk", weather: "stars", sky: ["#2b1b4e", "#7a4f8c", "#c98a9a"], ground: "sea", ground_color: "#5e4b8b", ink: "#f6e9dc", accent: "#ffd9a0", font: "serif", text_place: "top", motion: "slow",
     elements: [{ kind: "sun", x: "center", y: "horizon", size: "large", color: "#ffb37a", count: 1 }, { kind: "lighthouse", x: "right", y: "horizon", size: "medium", color: "#f6e9dc", count: 1 }, { kind: "bird", x: "left", y: "high", size: "tiny", color: "#2b1b4e", count: 5 }, { kind: "boat", x: "far-left", y: "ground", size: "small", color: "#3a2a5e", count: 1 }],
     lines: ["The sea keeps its lavender secret.", "One lighthouse counts the evening slowly, and nobody asks it to hurry."],
-    console: { side: ["bottom", "top", "left", "right"][Math.floor(Math.random() * 4)], tone: "glass", shape: "pill", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "set time night" }, { label: "some rain", action: "set weather rain" }, { label: "more birds", action: "more bird" }] }, next: ["the lighthouse keeper's room", "the same island at night", "a boat going out"] });
+    console: { side: ["bottom", "top", "left", "right"][Math.floor(Math.random() * 4)], tone: "glass", shape: "pill", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "set time night" }, { label: "some rain", action: "set weather rain" }, { label: "more birds", action: "more bird" }] }, next: ["the same island at night"] });
   const doc = `<!DOCTYPE html><html><head><title>A Quiet Island</title><style>html,body{margin:0;height:100%}body{background:linear-gradient(180deg,#2b1b4e,#c98a9a);color:#f6e9dc;font-family:Georgia,serif}h1{position:absolute;top:12vh;width:100%;text-align:center;font-weight:300}</style></head><body><h1>A Quiet Island</h1><p>The sea keeps its lavender secret.</p></body></html>`;
   const words = ["the", "a", "sea", "light", "dusk", "quiet", "#", "div", "px", "color"];
   const kinds = ["moon", "star", "boat", "whale"];

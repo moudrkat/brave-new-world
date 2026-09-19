@@ -83,7 +83,7 @@ export const WORLD_SCHEMA = {
       },
     },
     lines: { type: "array", items: { type: "string", minLength: 6, maxLength: 140 }, minItems: 2, maxItems: 3 },
-    next: { type: "array", items: { type: "string", minLength: 3, maxLength: 40 }, minItems: 1, maxItems: 3 },
+    next: { type: "array", items: { type: "string", minLength: 3, maxLength: 40 }, minItems: 1, maxItems: 1 },
     console: {
       type: "object",
       properties: {
@@ -103,7 +103,7 @@ export const WORLD_SCHEMA = {
 const enumRule = (list) => list.map((v) => `"\\"${v}\\""`).join(" | ");
 const bareRule = (list) => list.map((v) => `"${v}"`).join(" | ");
 export const WORLD_GRAMMAR = `
-root ::= "{\\"title\\":" title ",\\"time\\":" time ",\\"weather\\":" weather ",\\"sky\\":[" color "," color ("," color)? "],\\"ground\\":" ground ",\\"ground_color\\":" color ",\\"ink\\":" color ",\\"accent\\":" color ",\\"font\\":" font ",\\"text_place\\":" place ",\\"motion\\":" motion ",\\"elements\\":[" el "," el ("," el)? ("," el)? ("," el)? ("," el)? ("," el)? "],\\"lines\\":[" line "," line ("," line)? "],\\"console\\":{\\"side\\":" side ",\\"tone\\":" tone ",\\"shape\\":" shape ",\\"width\\":" width ",\\"prompt\\":" short ",\\"button\\":" short ",\\"buttons\\":[" btn ("," btn)? ("," btn)? "]},\\"next\\":[" door ("," door)? ("," door)? "]}"
+root ::= "{\\"title\\":" title ",\\"time\\":" time ",\\"weather\\":" weather ",\\"sky\\":[" color "," color ("," color)? "],\\"ground\\":" ground ",\\"ground_color\\":" color ",\\"ink\\":" color ",\\"accent\\":" color ",\\"font\\":" font ",\\"text_place\\":" place ",\\"motion\\":" motion ",\\"elements\\":[" el "," el ("," el)? ("," el)? ("," el)? ("," el)? ("," el)? "],\\"lines\\":[" line "," line ("," line)? "],\\"console\\":{\\"side\\":" side ",\\"tone\\":" tone ",\\"shape\\":" shape ",\\"width\\":" width ",\\"prompt\\":" short ",\\"button\\":" short ",\\"buttons\\":[" btn ("," btn)? ("," btn)? "]},\\"next\\":[" door "]}"
 el ::= "{\\"kind\\":" kind ",\\"x\\":" xs ",\\"y\\":" ys ",\\"size\\":" size ",\\"color\\":" color ",\\"count\\":" count "}"
 title ::= "\\"" tchar{3,36} "\\""
 line ::= "\\"" tchar{8,150} "\\""
@@ -163,7 +163,7 @@ const EXAMPLES = [["a jazz bar under the sea at 2am", {
   ],
   lines: ["Two in the morning and the water is warm with saxophone.", "Nobody here has ever seen the surface. Nobody asks."],
   console: { side: "top", tone: "glass", shape: "pill", width: "narrow", prompt: "order something for the room", button: "play", buttons: [{ label: "later, darker", action: "set time night" }, { label: "one more set", action: "again" }] },
-  next: ["the same bar at closing time", "a lighthouse for the fish", "a rooftop above the sea"],
+  next: ["a rooftop above the sea"],
 }], ["a train station in a red desert, noon", {
   title: "Platform Nine, Vermilion",
   lines: ["The timetable was painted over years ago.", "Heat stands on the rails like a passenger."],
@@ -176,7 +176,7 @@ const EXAMPLES = [["a jazz bar under the sea at 2am", {
     { kind: "bird", x: "far-right", y: "high", size: "tiny", color: "#2b0e05", count: 2 },
   ],
   console: { side: "bottom", tone: "light", shape: "sharp", width: "full", prompt: "where to, passenger?", button: "depart", buttons: [{ label: "wait for dusk", action: "set time dusk" }, { label: "let it storm", action: "set weather rain" }, { label: "somewhere else", action: "elsewhere" }] },
-  next: ["the next station, at night", "a train through snow"],
+  next: ["a train through snow"],
 }], ["a city folded out of paper, first light", {
   title: "Creased",
   lines: ["Every roof was once a page. Some still remember the words.", "When the wind comes, the whole town rustles.", "Do not get it wet."],
@@ -190,7 +190,7 @@ const EXAMPLES = [["a jazz bar under the sea at 2am", {
     { kind: "cat", x: "left", y: "low", size: "tiny", color: "#3b3a4a", count: 1 },
   ],
   console: { side: "right", tone: "paper", shape: "soft", width: "narrow", prompt: "write on the margin", button: "fold", buttons: [{ label: "unfold", action: "undo" }, { label: "more houses", action: "more house" }] },
-  next: ["the same town after rain", "a paper forest", "inside one of the houses"],
+  next: ["inside one of the houses"],
 }]];
 
 const shuffled = (list) => list.map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
@@ -202,7 +202,7 @@ const shuffled = (list) => list.map((v) => [Math.random(), v]).sort((a, b) => a[
 // (measured: 27 of 32 consoles in evals/2026-09-19-spec-qwen05b-prompt-v1 were
 // one of the three examples' consoles, label for label); false shows none.
 // One example's console, said rather than shown: a voice to learn, no block to copy.
-const proseConsole = (ex) => `console on the ${ex.console.side} edge, ${ex.console.tone}, ${ex.console.shape}, ${ex.console.width}; prompt "${ex.console.prompt}"; button "${ex.console.button}"; levers ${ex.console.buttons.map((b) => `"${b.label}" (${b.action})`).join(", ")}; doors ${ex.next.map((d) => `"${d}"`).join(", ")}.`;
+const proseConsole = (ex) => `console on the ${ex.console.side} edge, ${ex.console.tone}, ${ex.console.shape}, ${ex.console.width}; prompt "${ex.console.prompt}"; button "${ex.console.button}"; levers ${ex.console.buttons.map((b) => `"${b.label}" (${b.action})`).join(", ")}; door "${ex.next[0]}".`;
 export const EXAMPLE_MODE = true; // what ships; the eval's default, so it measures what ships
 export function systemSpec({ example = EXAMPLE_MODE } = {}) {
   const [exWish, raw] = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)];
@@ -220,7 +220,7 @@ export function systemSpec({ example = EXAMPLE_MODE } = {}) {
     "Kinds: " + shuffled(KINDS).join(", ") + ".",
     "console: the control panel is yours to design too: side (" + shuffled(SIDES).join(", ") + "), tone (" + shuffled(TONES).join(", ") + "), shape (" + shuffled(CON_SHAPES).join(", ") + "), width (" + shuffled(WIDTHS).join(", ") + "),",
     "prompt (the invitation written in the input, in this world's voice), button (the word on the main button), and one to three buttons: the levers. Each has a two or three word label in this world's voice and an action, which is what the lever really does, written as one of: set time <" + TIMES.join("|") + ">, set weather <" + WEATHERS.join("|") + ">, set ground <" + GROUNDS.join("|") + ">, set motion <" + MOTIONS.join("|") + ">, set font <" + FONTS.join("|") + ">, add <kind>, remove <kind>, more <kind>, fewer <kind>, undo, again, elsewhere, inside. The label must promise what the action does.",
-    "next: one to three doors out of this world: short wishes, a few words each, for the world someone standing here would want to step into next. Nearby places, the same place changed, or somewhere this world hints at. Never the wish itself.",
+    "next: one door out of this world: a short wish, a few words, for the world someone standing here would want to step into next. A nearby place, the same place changed, or somewhere this world hints at. Never the wish itself.",
     "Every world is different. Pick the things, colors and words that belong to THIS wish and to nothing else. Big things large, distant things small, mix positions. Colors are real hex colors that match the wish: lavender is #b39ddb, dusk is orange to violet, snow is white-blue, neon is bright on black.",
     "The wish may be vague: a single word, a feeling, a question, a greeting, another language. Still answer with a whole world that fits it; a feeling becomes a place that feels like that.",
     "If a world is already in the conversation and the wish asks for a change (darker, more birds, make it rain, bigger, the same but at noon), keep that world and change only what was asked. The buttons you offer should be the changes someone in this world would want next.",
@@ -283,7 +283,7 @@ export function normalizeSpec(o) {
         .map((b) => ({ label: String(b?.label || "").slice(0, 22), action: parseAction(b?.action) ? actionText(parseAction(b?.action)) : "again" }))
         .filter((b) => b.label.trim()),
     },
-    next: (Array.isArray(o.next) ? o.next : []).map((l) => String(l).trim().slice(0, 48)).filter(Boolean).slice(0, 3),
+    next: (Array.isArray(o.next) ? o.next : []).map((l) => String(l).trim().slice(0, 48)).filter(Boolean).slice(0, 1),
   };
   if (!spec.elements.length) spec.elements.push({ kind: "star", x: "center", y: "sky", size: "small", color: spec.ink, count: 5 });
   return spec;
@@ -439,6 +439,17 @@ function groundCss(spec) {
   }
 }
 
+// The doors as signposts in the scene: a post at the horizon and a board that
+// points the way, right, left, then straight on. Pressing one wishes it.
+function signposts(s, horizon) {
+  if (!s.next?.length) return "";
+  // it stands where the model's own layout leaves room: away from the words, away from a side panel
+  const side = s.text_place === "right" || s.console.side === "right" ? "left" : "right";
+  const x = side === "right" ? 84 : 16;
+  // not a <button>: the harness strips those from a dreamed page, as it should
+  return `<div class="signs"><div role="button" tabindex="0" class="sign main ${side}" data-door="0" data-wish="${esc(s.next[0])}" style="left:${x}%;top:${horizon - 1}%;--dz:0.55" title="the way on: press it"><i class="post"></i><span class="board">${esc(s.next[0])}</span><em class="eta"></em></div></div>`;
+}
+
 // A string as spans, each word at the model's certainty when it wrote it.
 function certainWords(text, probs) {
   if (!probs || probs.length !== text.length) return esc(text);
@@ -501,11 +512,37 @@ body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-f
 .ground { position: absolute; left: 0; right: 0; top: ${horizon}%; bottom: 0; ${groundCss(s)} }
 .haze { position: absolute; left: 0; right: 0; top: ${horizon - 14}%; height: 28%; background: linear-gradient(180deg, transparent, ${rgba(s.sky[s.sky.length - 1], 0.7)} 50%, transparent); pointer-events: none; }
 .el { position: absolute; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); overflow: visible; cursor: pointer; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); opacity: calc(1 - var(--haze, 0) * 0.45); }
+.scene.micro .el, .scene.micro .sign { animation-name: settle, drift; animation-duration: 0.55s, calc(18s / var(--speed)); }
+@keyframes settle { from { opacity: 0; scale: 0.6; } to { opacity: 1; scale: 1; } }
 .el.mirror { transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), -50%) scaleY(-1); opacity: 0.22; filter: blur(1.2px); pointer-events: none; mask-image: linear-gradient(to top, #000 20%, transparent 95%); -webkit-mask-image: linear-gradient(to top, #000 20%, transparent 95%); animation: shimmer calc(4s / var(--speed)) ease-in-out infinite alternate; }
 .bloom { position: absolute; aspect-ratio: 1; border-radius: 50%; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); background: radial-gradient(circle, color-mix(in srgb, var(--c) 55%, transparent) 0%, color-mix(in srgb, var(--c) 18%, transparent) 35%, transparent 65%); opacity: ${isDark ? 0.5 : 0.18}; mix-blend-mode: ${isDark ? "screen" : "multiply"}; pointer-events: none; animation: flicker calc(3s / var(--speed)) ease-in-out infinite alternate; animation-delay: var(--d); }
 .scene::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,0.22) 100%); pointer-events: none; }
+.signs { position: absolute; inset: 0; pointer-events: none; }
+.sign { position: absolute; transform: translate(-50%, -100%) translate(calc(var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(var(--py, 0) * var(--dz, 0.5) * -1.2vh)); background: none; border: 0; padding: 0; cursor: pointer; pointer-events: auto; font: inherit; color: ${s.ink}; display: flex; flex-direction: column; align-items: center; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); z-index: 2; }
+.sign.on { top: min(${horizon + 7}%, calc(100% - var(--bnw-panel, 30vh) - 70px)); }
+.sign .post { display: block; order: 2; width: 3px; height: clamp(26px, 6vmin, 54px); background: ${mix(s.ground_color, "#000000", 0.35)}; border-radius: 2px; }
+.sign .board { display: block; order: 1; max-width: 17ch; padding: 5px 12px 6px; font-family: ${FONT[s.font]}; font-style: italic; font-size: clamp(11px, 1.55vmin, 15px); line-height: 1.2; text-align: center; background: ${rgba(mix(s.accent, s.sky[s.sky.length - 1], 0.35), 0.92)}; color: ${lum(mix(s.accent, s.sky[s.sky.length - 1], 0.35)) > 0.55 ? "#1b1620" : "#f6efe4"}; box-shadow: 0 2px 10px rgba(0,0,0,.25); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sign.right .board { clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%); padding-right: 18px; }
+.sign.left .board { clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%); padding-left: 18px; }
+.sign.on .board { clip-path: polygon(0 8px, 50% 0, 100% 8px, 100% 100%, 0 100%); padding-top: 11px; }
+.sign:hover .board { filter: brightness(1.08); }
+.sign.ahead .board { animation: breathe 1.6s ease-in-out infinite; }
+.sign.ready .board { box-shadow: 0 0 0 1px ${s.accent}, 0 0 18px ${rgba(s.accent, 0.7)}; }
+.sign .eta { order: 3; font-family: ui-monospace, monospace; font-style: normal; font-size: 9.5px; letter-spacing: 0.12em; color: ${dimInk}; margin-top: 3px; white-space: nowrap; text-shadow: ${haloDark}; }
+.sign.main .board { font-size: clamp(13px, 2vmin, 19px); max-width: 22ch; padding: 7px 16px 8px; }
+.sign.main.right .board { padding-right: 24px; } .sign.main.left .board { padding-left: 24px; }
+.sign.main .post { height: clamp(34px, 8vmin, 70px); width: 4px; }
+@keyframes breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@media (max-width: 720px) { .sign .board { max-width: 13ch; font-size: 11px; } .sign.main .board { max-width: 16ch; font-size: 13px; } .sign.on { display: none; } }
 @keyframes shimmer { from { transform: translate(-50%, -50%) scaleY(-1) skewX(0.6deg); } to { transform: translate(-50%, -50%) scaleY(-1) skewX(-0.6deg); } }
-.el:hover { filter: drop-shadow(0 0 10px var(--c)); }
+.el:hover { filter: drop-shadow(0 0 10px var(--c)); animation: nudge 0.5s ease-in-out; }
+.el:active { transform: translate(-50%, -50%) scale(1.12); }
+.sign:active .board, .sign.swing .board { animation: swing 0.7s ease-in-out; transform-origin: 50% -30px; }
+.star-shot { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: ${s.ink}; box-shadow: 0 0 12px ${s.accent}, 0 0 24px ${s.ink}; pointer-events: none; animation: shoot 0.9s ease-out forwards; z-index: 3; }
+.star-shot::before { content: ""; position: absolute; right: 2px; top: 1px; width: 70px; height: 1px; background: linear-gradient(90deg, transparent, ${rgba(s.ink, 0.9)}); transform-origin: right; transform: rotate(20deg); }
+@keyframes nudge { 0% { rotate: 0deg; } 30% { rotate: -3deg; } 60% { rotate: 3deg; } 100% { rotate: 0deg; } }
+@keyframes swing { 0% { rotate: 0deg; } 25% { rotate: -6deg; } 55% { rotate: 5deg; } 80% { rotate: -2deg; } 100% { rotate: 0deg; } }
+@keyframes shoot { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: -120px 44px; } }
 .el.ghost { mix-blend-mode: screen; animation: ghost calc(5s / var(--speed)) ease-in-out infinite alternate; pointer-events: auto; }
 .el.ghost:hover { animation: none; opacity: 0.7; }
 @keyframes ghost { from { opacity: 0.05; } to { opacity: var(--gmax, 0.35); } }
@@ -551,7 +588,8 @@ html.low-power * { animation: none !important; filter: none !important; backdrop
 <div class="scene"><div class="ground"></div><div class="haze"></div>
 ${weather(s.weather, s)}
 ${elements}
-<div class="words ${s.text_place}"><h1>${certainWords(s.title, certainty?.title)}</h1>${s.lines.map((l, i) => `<p>${certainWords(l, certainty?.lines?.[i])}</p>`).join("")}</div></div>`;
+<div class="words ${s.text_place}"><h1>${certainWords(s.title, certainty?.title)}</h1>${s.lines.map((l, i) => `<p>${certainWords(l, certainty?.lines?.[i])}</p>`).join("")}</div>
+${signposts(s, horizon)}</div>`;
   return `<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><title>${esc(s.title)}</title><style>${css}</style></head><body>${body}</body></html>`;
 }
 
@@ -667,6 +705,81 @@ export function applyAction(spec, action) {
   n.elements = n.elements.slice(-9);
   if (!n.elements.length) n.elements.push({ kind: "star", x: "center", y: "sky", size: "small", color: n.ink, count: 5 });
   return n;
+}
+
+// Surprises: what a tap on a thing does to the world, without the model. The
+// kind decides when it can; otherwise a coin. Returns { spec, note } or null.
+const HUES = ["#ff5c8a", "#9b6bff", "#e0a458", "#4fd1c5", "#f6e9dc", "#ff6a3d", "#b39ddb", "#e6ff8a"];
+export function surprise(spec, index, rnd = Math.random) {
+  const n = JSON.parse(JSON.stringify(spec));
+  const e = n.elements[index];
+  if (!e) return null;
+  const pick = (list) => list[Math.floor(rnd() * list.length)];
+  const step = (c, d) => COUNTS[Math.max(0, Math.min(COUNTS.length - 1, COUNTS.indexOf(COUNTS.includes(c) ? c : COUNTS.find((x) => x >= c) || 13) + d))];
+  const sizes = SIZES;
+  const special = {
+    sun: () => { e.kind = "moon"; Object.assign(n, applyAction(n, "set time night")); return "the sun gave up and became a moon; night came with it"; },
+    moon: () => { e.kind = "sun"; Object.assign(n, applyAction(n, "set time dawn")); return "the moon turned into a sun; dawn, then"; },
+    bird: () => { e.count = 13; return "one bird called the others"; },
+    butterfly: () => { e.count = 13; n.weather = "petals"; return "the butterflies brought petals"; },
+    cloud: () => { n.weather = n.weather === "rain" ? "snow" : "rain"; return `the cloud remembered it could ${n.weather}`; },
+    candle: () => { n.weather = "fireflies"; return "the candle let the fireflies out"; },
+    lantern: () => { n.weather = "fireflies"; return "the lantern let the fireflies out"; },
+    fire: () => { n.weather = "embers"; return "sparks"; },
+    volcano: () => { n.ground = "lava"; n.weather = "embers"; return "the volcano had been waiting for this"; },
+    whale: () => { n.ground = "sea"; e.size = "huge"; return "the whale wanted more sea, and got it"; },
+    fish: () => { e.count = 13; n.weather = "bubbles"; return "a shoal"; },
+    star: () => { n.weather = "stars"; e.count = 13; return "the sky filled with them"; },
+    comet: () => { n.motion = "restless"; return "the comet woke everything up"; },
+    bell: () => { n.motion = n.motion === "still" ? "restless" : "still"; return "the bell rang and the world " + (n.motion === "still" ? "held its breath" : "stirred"); },
+    clock: () => { const t = TIMES[(TIMES.indexOf(n.time) + 1) % TIMES.length]; Object.assign(n, applyAction(n, "set time " + t)); return "the clock skipped to " + t; },
+    mirror: () => { n.elements.forEach((x) => { x.x = XS[XS.length - 1 - XS.indexOf(x.x)]; }); return "the mirror turned the world around"; },
+    door: () => { n.text_place = PLACES[(PLACES.indexOf(n.text_place) + 1) % PLACES.length]; return "the door opened onto the words from another side"; },
+    window: () => { Object.assign(n, applyAction(n, "set weather clear")); return "someone opened the window"; },
+    flower: () => { e.count = step(e.count, 2); n.weather = "petals"; return "it bloomed"; },
+    mushroom: () => { e.count = step(e.count, 2); n.weather = "fog"; return "mushrooms bring fog, everyone knows that"; },
+    balloon: () => { e.y = "sky"; e.size = sizes[Math.min(sizes.length - 1, sizes.indexOf(e.size) + 1)]; return "it rose"; },
+    rocket: () => { n.elements.splice(index, 1); n.weather = "embers"; return "it left"; },
+    train: () => { e.x = XS[XS.length - 1 - XS.indexOf(e.x)]; n.motion = "restless"; return "the train went the other way"; },
+    boat: () => { e.x = XS[Math.min(XS.length - 1, XS.indexOf(e.x) + 1)]; return "the boat drifted"; },
+    lighthouse: () => { Object.assign(n, applyAction(n, "set weather fog")); return "the lighthouse called the fog, so as to matter"; },
+    cat: () => { n.elements.splice(index, 1); return "the cat left, as cats do"; },
+    person: () => { e.count = step(e.count, 1); return "company"; },
+    figure: () => { e.kind = "person"; return "it turned out to be someone"; },
+  };
+  if (special[e.kind]) return { spec: n, note: special[e.kind]() };
+  const generic = [
+    () => { e.count = step(e.count, 1); return `more ${e.kind}`; },
+    () => { e.size = sizes[Math.min(sizes.length - 1, sizes.indexOf(e.size) + 1)]; return `a bigger ${e.kind}`; },
+    () => { e.color = pick(HUES.filter((h) => h !== e.color)); return `the ${e.kind} changed its mind about its color`; },
+    () => { e.x = XS[XS.length - 1 - XS.indexOf(e.x)]; return `the ${e.kind} moved across`; },
+    () => { n.elements.push({ ...e, x: pick(XS.filter((x) => x !== e.x)), count: 1 }); return `a second ${e.kind}`; },
+    () => { if (n.elements.length > 1) n.elements.splice(index, 1); return `the ${e.kind} is gone`; },
+  ];
+  return { spec: n, note: pick(generic)() };
+}
+// a tap on the ground: something grows where it landed
+export function sprout(spec, xFrac, rnd = Math.random) {
+  const n = JSON.parse(JSON.stringify(spec));
+  const byGround = { sea: ["reed", "boat", "fish"], water: ["reed", "fish"], sand: ["palm", "reed"], snow: ["pine", "birch"], ice: ["pine"], grass: ["flower", "tree", "mushroom"], moss: ["mushroom", "flower"], wheat: ["flower", "reed"], lava: ["fire"], stone: ["column", "mushroom"], floor: ["candle", "book"], clouds: ["balloon", "bird"], void: ["star", "lantern"] };
+  const kinds = byGround[n.ground] || ["flower", "tree", "mushroom"];
+  const kind = kinds[Math.floor(rnd() * kinds.length)];
+  const xs = XS[Math.max(0, Math.min(XS.length - 1, Math.round(xFrac * (XS.length - 1))))];
+  n.elements.push({ kind, x: xs, y: GROUNDED.has(kind) ? "ground" : "low", size: "small", color: rnd() < 0.5 ? n.accent : n.ink, count: 1 });
+  n.elements = n.elements.slice(-9);
+  return { spec: n, note: `a ${kind} came up where you touched` };
+}
+// the weather, turned by hand
+export function turnWeather(spec) {
+  const n = JSON.parse(JSON.stringify(spec));
+  const order = ["clear", "stars", "rain", "snow", "fog", "embers", "petals", "fireflies", "bubbles"];
+  n.weather = order[(order.indexOf(n.weather) + 1) % order.length];
+  return { spec: n, note: "the weather turned: " + n.weather };
+}
+export function turnFont(spec) {
+  const n = JSON.parse(JSON.stringify(spec));
+  n.font = FONTS[(FONTS.indexOf(n.font) + 1) % FONTS.length];
+  return { spec: n, note: "the letters changed their face: " + n.font };
 }
 
 // From the token stream to the roads not taken: for every element's kind, the
