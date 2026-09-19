@@ -128,21 +128,11 @@ download, cached for the next visit.
 
 ## Evals
 
-`eval.html` runs every candidate model over the same wishes with the prompt,
-grammar and sampling the app ships with, and scores what came back: whether a
-spec parsed, whether the prose held together, how much of the vocabulary and
-palette it used, whether the world matches the wish, whether the levers' labels
-say what they do, whether the doors lead somewhere other than back. Three sets:
-
-- `?set=wishes`: 32 held-out wishes, none in the prompt.
-- `?set=ambiguous`: 16 wishes people actually type: "hi", "sad", "blue",
-  "monday", one in Czech, one emoji, "the opposite of this".
-- `?set=followups`: 12 edits to a fixed prior world ("make it night", "add a
-  whale"); scored on whether the asked change happened and how much of the
-  world survived.
-
-Results for the shipped model are in `evals/2026-09-19-*.md`; the full JSON
-(specs, tokens, issues) sits next to them, gitignored for size.
+Measured, not assumed. `eval.html` runs the shipped prompt, grammar and
+sampling over held-out wishes and scores what came back; the sets are the
+32 wishes, 16 vague ones ("hi", "blue", "monday", one in Czech, one emoji)
+and 12 edits to a fixed world. Full tables in `evals/`, the findings and what
+was changed because of them in [docs/evals.md](docs/evals.md).
 
 | mind | set | example | tok/s | broken | dead | sense | original | prose | levers | doors | edit | kept | total |
 |---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
@@ -152,42 +142,6 @@ Results for the shipped model are in `evals/2026-09-19-*.md`; the full JSON
 | the same, retry shown its broken attempt | wishes | full | 12 | 12% | 12% | 0.42 | 0.50 | 0.97 | 0.64 | 1.00 | · | · | 0.89 |
 | Qwen2.5 Coder · 0.5B | wishes | prose | 14 | 12% | 9% | 0.45 | 0.41 | 0.98 | 0.19 | 0.99 | · | · | 0.87 |
 | Qwen2.5 Coder · 0.5B | wishes | bare | 15 | 69% | 62% | 0.41 | 0.38 | 0.86 | 0.10 | 0.98 | · | · | 0.88 |
-
-broken: first attempts the harness sent back (not language, or no spec); dead: still broken after the eval's one retry (the app retries twice). sense: the world matches what the wish plainly says; original: not the prompt example's colors, things or words; prose: readable strings; levers: label says what the composed action does (lower bound); doors: lead away from the wish and each other; edit/kept: follow-ups only, asked change made / share of the prior world preserved.
-
-One finding worth more than the table. Shown a worked example in the prompt,
-the model designs the world and plagiarizes the panel: on the final grammar,
-27 of 32 consoles used one of the three examples' consoles, label for label
-("fold", "unfold", "more houses"). Take the console out of the example and
-the copying stops entirely, and so does the model's ability to write one: 22
-of 32 first attempts were not language. Describe one example console in prose
-instead of JSON and the copying halves, but the levers stop meaning what they
-say (label matches action 0.19 against 0.64). So the example ships, the doors
-are mostly its own (12 of 77 copied), and the number stays in this paragraph.
-The tighter grammar for short strings (a letter first, plain characters after)
-came out of the bare run's failures and stayed.
-
-The retry changed too. Shown its own broken attempt in the conversation, the
-model copied it back at close to total certainty, so 4 of 32 worlds were
-still not language after a retry. A retry is now a fresh start (the prompt's
-lists reshuffled, a cooler temperature, the first attempt out of sight), and
-all 4 recover; the average wish dropped from 37 s to 28 s with it.
-
-Vague wishes show the same reflex from the other side. On the 16 wishes people
-actually type ("hi", "sad", "blue", "monday", one in Czech, one emoji), it
-made 14 different worlds, 25% needed a second attempt and 19% were still not
-language after it; and 5 of the 16 were the prompt example's own world
-wearing a new sky: "hi" got "Platform Nine, Vermilion", "somewhere warm" got
-the jazz bar under the sea. A small model with nothing to go on goes home.
-
-Edits are the other honest number. Asked for a change to the world on screen
-("make it night", "add a whale", "snow instead"), it keeps the world, 0.86 of
-it on average, and makes the asked change 4 times in 12. The other times it
-names the change instead of making it: the title becomes "Snow instead" and
-the weather stays clear, "Typewriter Letters" over the same serif. That is
-why the levers exist and why the engine, not the model, pulls them: the model
-decides what a lever is for, and that it does reliably (0.83 of labels match
-their composed action on the follow-up set).
 
 ## The rest
 
