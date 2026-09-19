@@ -1,8 +1,13 @@
 import { CreateWebWorkerMLCEngine } from "https://esm.run/@mlc-ai/web-llm@0.2.85";
-import { MODELS, WISHES, STRATEGIES, systemFor, userMessage, requestFor, chatOptsFor, dreamToPage, retryMessage, score, measureFrame, escapeHtml, fingerprint, variety, originality, sense, proseScore } from "./mind.js";
+import { MODELS, WISHES, SETS, PRIOR, FOLLOWUPS, STRATEGIES, systemFor, userMessage, requestFor, chatOptsFor, dreamToPage, retryMessage, score, measureFrame, escapeHtml, fingerprint, variety, originality, sense, proseScore, keptScore, buttonSense, doorSense, EXAMPLE_MODE } from "./mind.js";
 
 const $ = (id) => document.getElementById(id);
 const PARAMS = new URLSearchParams(location.search);
+// ?set=wishes (default) | ambiguous | followups. Follow-ups put PRIOR in the conversation first.
+const SET = SETS[PARAMS.get("set")] ? PARAMS.get("set") : "wishes";
+// ?ex=full | bare | 0 picks the worked example; without it, the eval runs what the app ships
+const EXAMPLE = PARAMS.get("ex") == null ? EXAMPLE_MODE : PARAMS.get("ex") === "0" ? false : PARAMS.get("ex") === "bare" ? "bare" : true;
+const LIST = SETS[SET];
 const results = []; // { model, label, vram, loadSec, runs: [{ wish, raw, html, tokens, tps, finish, score }] }
 let engine = null;
 let loadedModel = null;
@@ -44,7 +49,7 @@ $("md").addEventListener("click", () => navigator.clipboard.writeText(markdown()
 
 async function run() {
   const ids = [...document.querySelectorAll("#models input:checked")].map((i) => i.value);
-  const n = Math.min(WISHES.length, +$("nwishes").value || 6);
+  const n = Math.min(LIST.length, +$("nwishes").value || 6);
   const maxTokens = +$("maxtok").value || 1200;
   const seed = +$("seed").value || 7;
   const temperature = +$("temp").value || 0.7;
@@ -91,7 +96,7 @@ async function run() {
     entry.loadSec = (performance.now() - t0) / 1000;
 
     for (let i = 0; i < n && !stop; i++) {
-      const wish = WISHES[i];
+      const wish = LIST[i];
       say(`${meta.label} · ${i + 1}/${n} · ${wish}`);
       const r = await dream(id, wish, maxTokens, seed + i, temperature, strategy);
       // the harness, exactly as the app runs it, but with one retry so the eval stays bounded
@@ -120,6 +125,12 @@ async function run() {
       r.score.original = strategy === "spec" ? originality(r.spec) : null;
       r.score.sense = strategy === "spec" ? sense(r.spec, wish) : null;
       r.score.prose = strategy === "spec" ? proseScore(r.spec) : null;
+      r.score.buttons = strategy === "spec" ? buttonSense(r.spec) : null;
+      r.score.doors = strategy === "spec" ? doorSense(r.spec, wish) : null;
+      if (SET === "followups" && strategy === "spec") {
+        r.score.edit = r.spec && FOLLOWUPS[i].expect(r.spec) ? 1 : 0;
+        r.score.kept = r.spec ? keptScore(PRIOR.spec, r.spec) : 0;
+      }
       r.measured = measured;
       fillCard(card, r);
       entry.runs.push(r);
@@ -136,7 +147,8 @@ async function run() {
 }
 
 async function dream(modelId, wish, maxTokens, seed, temperature, strategy, extraMessages = []) {
-  const messages = [{ role: "system", content: systemFor(strategy, { example: PARAMS.get("ex") !== "0" }) }, { role: "user", content: userMessage(wish, strategy, { hints: PARAMS.get("hints") === "1" }) }, ...extraMessages];
+  const prior = SET === "followups" && strategy === "spec" ? [{ role: "user", content: PRIOR.wish }, { role: "assistant", content: JSON.stringify(PRIOR.spec) }] : [];
+  const messages = [{ role: "system", content: systemFor(strategy, { example: EXAMPLE }) }, ...prior, { role: "user", content: userMessage(wish, strategy, { hints: PARAMS.get("hints") === "1" }) }, ...extraMessages];
   const extra = { seed, logprobs: false, top_logprobs: undefined };
   if (strategy === "html") extra.max_tokens = maxTokens;
   if (strategy === "html" || PARAMS.has("temp")) extra.temperature = temperature;
@@ -180,7 +192,7 @@ const f2 = (x) => (x == null ? "·" : x.toFixed(2));
 function updateRow(tr, entry) {
   const tps = entry.runs.length ? entry.runs.reduce((a, r) => a + r.tps, 0) / entry.runs.length : null;
   const tok = entry.runs.length ? entry.runs.reduce((a, r) => a + r.tokens, 0) / entry.runs.length : null;
-  const keys = ["complete", "clean", "style", "colors", "decor", "text", "wish", "loop", "visual", "sense", "original", "prose", "total"];
+  const keys = ["complete", "clean", "style", "colors", "decor", "text", "wish", "loop", "visual", "sense", "original", "prose", "buttons", "doors", "edit", "kept", "total"];
   const errs = entry.runs.length ? entry.runs.reduce((a, r) => a + (r.issues?.length || 0), 0) / entry.runs.length : null;
   const fatal = entry.runs.length ? entry.runs.filter((r) => r.fatal).length / entry.runs.length : null;
   const dead = entry.runs.length ? entry.runs.filter((r) => r.fatal && r.fatalAfterRetry).length / entry.runs.length : null;
@@ -232,7 +244,7 @@ function fillCard(card, r) {
   card.querySelector(".meta").innerHTML =
     `<b>${escapeHtml(r.wish)}</b><br/>total ${f2(s.total)} · ${r.tokens} tok · ${r.tps.toFixed(1)} tok/s · ${escapeHtml(String(r.finish))}<br/>` +
     `harness: ${r.issues.length ? escapeHtml(r.issues.join(", ")) : "clean"}${r.retried ? (r.fatalAfterRetry ? " · retry failed" : " · fixed on retry") : ""}<br/>` +
-    `complete ${f2(s.complete)} style ${f2(s.style)} colors ${f2(s.colors)} decor ${f2(s.decor)} text ${f2(s.text)} wish ${f2(s.wish)} loop ${f2(s.loop)} visual ${f2(s.visual)}` + (s.sense != null ? ` sense ${f2(s.sense)}` : "") + (s.original != null ? ` original ${f2(s.original)}` : "") + (s.prose != null ? ` prose ${f2(s.prose)}` : "");
+    `complete ${f2(s.complete)} style ${f2(s.style)} colors ${f2(s.colors)} decor ${f2(s.decor)} text ${f2(s.text)} wish ${f2(s.wish)} loop ${f2(s.loop)} visual ${f2(s.visual)}` + (s.sense != null ? ` sense ${f2(s.sense)}` : "") + (s.original != null ? ` original ${f2(s.original)}` : "") + (s.prose != null ? ` prose ${f2(s.prose)}` : "") + (s.buttons != null ? ` buttons ${f2(s.buttons)} doors ${f2(s.doors)}` : "") + (s.edit != null ? ` edit ${s.edit} kept ${f2(s.kept)}` : "");
 }
 
 /* ---------- export ---------- */
@@ -240,7 +252,9 @@ function fillCard(card, r) {
 function exportable() {
   return {
     date: new Date().toISOString(),
-    system: SYSTEM,
+    set: SET,
+    example: EXAMPLE,
+    system: systemFor("spec", { example: EXAMPLE }),
     ua: navigator.userAgent,
     results: results.map((e) => ({ ...e, runs: e.runs.map((r) => ({ ...r, html: undefined, fp: undefined })) })),
     pages: results.map((e) => ({ model: e.model, strategy: e.strategy, pages: e.runs.map((r) => ({ wish: r.wish, html: r.html })) })),
@@ -248,7 +262,7 @@ function exportable() {
 }
 
 function markdown() {
-  const head = "| mind | vram MB | load s | tok/s | tokens | errors | broken | dead | variety | complete | style | colors | decor | text | wish | loop | visual | sense | original | prose | total |\n|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|";
+  const head = "| mind | vram MB | load s | tok/s | tokens | errors | broken | dead | variety | complete | style | colors | decor | text | wish | loop | visual | sense | original | prose | buttons | doors | edit | kept | total |\n|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|";
   const rows = results.map((e) => {
     const tps = e.runs.length ? e.runs.reduce((a, r) => a + r.tps, 0) / e.runs.length : null;
     const tok = e.runs.length ? e.runs.reduce((a, r) => a + r.tokens, 0) / e.runs.length : null;
@@ -257,7 +271,7 @@ function markdown() {
     const dead = e.runs.length ? e.runs.filter((r) => r.fatal && r.fatalAfterRetry).length / e.runs.length : null;
     const vary = variety(e.runs.map((r) => r.fp));
     return `| ${e.label} | ${e.vram} | ${e.loadSec == null ? "·" : e.loadSec.toFixed(0)} | ${tps == null ? "·" : tps.toFixed(1)} | ${tok == null ? "·" : tok.toFixed(0)} | ${errs == null ? "·" : errs.toFixed(1)} | ${fatal == null ? "·" : (fatal * 100).toFixed(0) + "%"} | ${dead == null ? "·" : (dead * 100).toFixed(0) + "%"} | ${f2(vary)} | ` +
-      ["complete", "style", "colors", "decor", "text", "wish", "loop", "visual", "sense", "original", "prose", "total"].map((k) => f2(mean(e, k))).join(" | ") + " |";
+      ["complete", "style", "colors", "decor", "text", "wish", "loop", "visual", "sense", "original", "prose", "buttons", "doors", "edit", "kept", "total"].map((k) => f2(mean(e, k))).join(" | ") + " |";
   });
   return head + "\n" + rows.join("\n");
 }

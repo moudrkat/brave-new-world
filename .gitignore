@@ -3,3 +3,9 @@ notes/
 
 # eval output too big for the space itself
 evals/*.json
+
+# films and frames
+out/
+
+# ide
+.idea/

@@ -61,6 +61,7 @@ export const WORLD_SCHEMA = {
       },
     },
     lines: { type: "array", items: { type: "string", minLength: 6, maxLength: 140 }, minItems: 2, maxItems: 3 },
+    next: { type: "array", items: { type: "string", minLength: 3, maxLength: 40 }, minItems: 1, maxItems: 3 },
     console: {
       type: "object",
       properties: {
@@ -71,7 +72,7 @@ export const WORLD_SCHEMA = {
       required: ["side", "tone", "shape", "width", "prompt", "button", "buttons"],
     },
   },
-  required: ["title", "time", "weather", "sky", "ground", "ground_color", "ink", "accent", "font", "text_place", "motion", "elements", "lines", "console"],
+  required: ["title", "time", "weather", "sky", "ground", "ground_color", "ink", "accent", "font", "text_place", "motion", "elements", "lines", "console", "next"],
 };
 
 // The same contract as WORLD_SCHEMA, as an EBNF grammar the sampler must obey.
@@ -79,7 +80,7 @@ export const WORLD_SCHEMA = {
 // whitespace anywhere, so a small model cannot spend its budget on newlines.
 const enumRule = (list) => list.map((v) => `"\\"${v}\\""`).join(" | ");
 export const WORLD_GRAMMAR = `
-root ::= "{\\"title\\":" title ",\\"time\\":" time ",\\"weather\\":" weather ",\\"sky\\":[" color "," color ("," color)? "],\\"ground\\":" ground ",\\"ground_color\\":" color ",\\"ink\\":" color ",\\"accent\\":" color ",\\"font\\":" font ",\\"text_place\\":" place ",\\"motion\\":" motion ",\\"elements\\":[" el "," el ("," el)? ("," el)? ("," el)? ("," el)? ("," el)? "],\\"lines\\":[" line "," line ("," line)? "],\\"console\\":{\\"side\\":" side ",\\"tone\\":" tone ",\\"shape\\":" shape ",\\"width\\":" width ",\\"prompt\\":" short ",\\"button\\":" short ",\\"buttons\\":[" btn ("," btn)? ("," btn)? "]}}"
+root ::= "{\\"title\\":" title ",\\"time\\":" time ",\\"weather\\":" weather ",\\"sky\\":[" color "," color ("," color)? "],\\"ground\\":" ground ",\\"ground_color\\":" color ",\\"ink\\":" color ",\\"accent\\":" color ",\\"font\\":" font ",\\"text_place\\":" place ",\\"motion\\":" motion ",\\"elements\\":[" el "," el ("," el)? ("," el)? ("," el)? ("," el)? ("," el)? "],\\"lines\\":[" line "," line ("," line)? "],\\"console\\":{\\"side\\":" side ",\\"tone\\":" tone ",\\"shape\\":" shape ",\\"width\\":" width ",\\"prompt\\":" short ",\\"button\\":" short ",\\"buttons\\":[" btn ("," btn)? ("," btn)? "]},\\"next\\":[" door ("," door)? ("," door)? "]}"
 el ::= "{\\"kind\\":" kind ",\\"x\\":" xs ",\\"y\\":" ys ",\\"size\\":" size ",\\"color\\":" color ",\\"count\\":" count "}"
 title ::= "\\"" tchar{3,36} "\\""
 line ::= "\\"" tchar{8,150} "\\""
@@ -104,6 +105,7 @@ width ::= ${enumRule(WIDTHS)}
 short ::= "\\"" tchar{3,56} "\\""
 btn ::= "{\\"label\\":" label ",\\"action\\":" action "}"
 label ::= "\\"" tchar{3,24} "\\""
+door ::= "\\"" tchar{4,40} "\\""
 action ::= ${enumRule(ACTIONS)}
 `;
 
@@ -121,6 +123,7 @@ const EXAMPLES = [["a jazz bar under the sea at 2am", {
   ],
   lines: ["Two in the morning and the water is warm with saxophone.", "Nobody here has ever seen the surface. Nobody asks."],
   console: { side: "top", tone: "glass", shape: "pill", width: "narrow", prompt: "order something for the room…", button: "play", buttons: [{ label: "later, darker", action: "night" }, { label: "one more set", action: "again" }] },
+  next: ["the same bar at closing time", "a lighthouse for the fish", "a rooftop above the sea"],
 }], ["a train station in a red desert, noon", {
   title: "Platform Nine, Vermilion",
   lines: ["The timetable was painted over years ago.", "Heat stands on the rails like a passenger."],
@@ -133,6 +136,7 @@ const EXAMPLES = [["a jazz bar under the sea at 2am", {
     { kind: "bird", x: "far-right", y: "high", size: "tiny", color: "#2b0e05", count: 2 },
   ],
   console: { side: "bottom", tone: "light", shape: "sharp", width: "full", prompt: "where to, passenger?", button: "depart", buttons: [{ label: "wait for dusk", action: "dusk" }, { label: "let it storm", action: "rain" }, { label: "somewhere else", action: "surprise" }] },
+  next: ["the next station, at night", "a train through snow"],
 }], ["a city folded out of paper, first light", {
   title: "Creased",
   lines: ["Every roof was once a page. Some still remember the words.", "When the wind comes, the whole town rustles.", "Do not get it wet."],
@@ -146,20 +150,26 @@ const EXAMPLES = [["a jazz bar under the sea at 2am", {
     { kind: "cat", x: "left", y: "low", size: "tiny", color: "#3b3a4a", count: 1 },
   ],
   console: { side: "right", tone: "paper", shape: "soft", width: "narrow", prompt: "write on the margin…", button: "fold", buttons: [{ label: "unfold", action: "undo" }, { label: "more houses", action: "more" }] },
+  next: ["the same town after rain", "a paper forest", "inside one of the houses"],
 }]];
 
 const shuffled = (list) => list.map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
 
 // Built fresh for every request: the lists are shuffled, because a small model
 // left to itself takes the first few options in the order it was shown them.
-export function systemSpec({ example = true } = {}) {
+// example: true shows a whole worked example; "bare" shows it without its
+// console and doors, because a 0.5B copies whatever console it is shown
+// (measured: 27 of 32 consoles in evals/2026-09-19-spec-qwen05b-prompt-v1 were
+// one of the three examples' consoles, label for label); false shows none.
+export const EXAMPLE_MODE = true; // what ships; the eval's default, so it measures what ships
+export function systemSpec({ example = EXAMPLE_MODE } = {}) {
   const [exWish, raw] = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)];
   const ex = {};
-  for (const k of ["title", "time", "weather", "sky", "ground", "ground_color", "ink", "accent", "font", "text_place", "motion", "elements", "lines", "console"]) ex[k] = raw[k];
+  for (const k of ["title", "time", "weather", "sky", "ground", "ground_color", "ink", "accent", "font", "text_place", "motion", "elements", "lines", "console", "next"]) if (!(example === "bare" && (k === "console" || k === "next"))) ex[k] = raw[k];
   return [
     "You design worlds. The user says what world they want to live in; you answer with one compact JSON object and nothing else" + (example ? ", like this example for \"" + exWish + "\":" : "."),
     example ? JSON.stringify(ex) : "",
-    example ? "That example belongs to its own wish. Do not reuse its colors, its things or its words." : "",
+    example ? "That example belongs to its own wish. Do not reuse its colors, its things or its words." + (example === "bare" ? " It leaves out the console and the doors: those you design for this world, in its own voice." : "") : "",
     "Fields: title (two to five words); lines (two or three short poetic sentences about this world);",
     "time (" + shuffled(TIMES).join(", ") + "); weather (" + shuffled(WEATHERS).join(", ") + "); sky (two or three hex colors, top to horizon);",
     "ground (" + shuffled(GROUNDS).join(", ") + ") and ground_color; ink (text color) and accent, hex;",
@@ -168,7 +178,10 @@ export function systemSpec({ example = true } = {}) {
     "Kinds: " + shuffled(KINDS).join(", ") + ".",
     "console: the control panel is yours to design too: side (" + shuffled(SIDES).join(", ") + "), tone (" + shuffled(TONES).join(", ") + "), shape (" + shuffled(CON_SHAPES).join(", ") + "), width (" + shuffled(WIDTHS).join(", ") + "),",
     "prompt (the invitation written in the input, in this world's voice), button (the word on the main button), and one to three buttons, each with a two or three word label in this world's voice and an action from: " + shuffled(ACTIONS).join(", ") + ".",
+    "next: one to three doors out of this world: short wishes, a few words each, for the world someone standing here would want to step into next. Nearby places, the same place changed, or somewhere this world hints at. Never the wish itself.",
     "Every world is different. Pick the things, colors and words that belong to THIS wish and to nothing else. Big things large, distant things small, mix positions. Colors are real hex colors that match the wish: lavender is #b39ddb, dusk is orange to violet, snow is white-blue, neon is bright on black.",
+    "The wish may be vague: a single word, a feeling, a question, a greeting, another language. Still answer with a whole world that fits it; a feeling becomes a place that feels like that.",
+    "If a world is already in the conversation and the wish asks for a change (darker, more birds, make it rain, bigger, the same but at noon), keep that world and change only what was asked. The buttons you offer should be the changes someone in this world would want next.",
   ].join("\n");
 }
 
@@ -228,6 +241,7 @@ export function normalizeSpec(o) {
         .map((b) => ({ label: String(b?.label || "").slice(0, 22), action: pick(b?.action, ACTIONS, "again") }))
         .filter((b) => b.label.trim()),
     },
+    next: (Array.isArray(o.next) ? o.next : []).map((l) => String(l).trim().slice(0, 48)).filter(Boolean).slice(0, 3),
   };
   if (!spec.elements.length) spec.elements.push({ kind: "star", x: "center", y: "sky", size: "small", color: spec.ink, count: 5 });
   return spec;
@@ -403,10 +417,11 @@ export function renderWorld(spec, { ghosts = [], certainty = null } = {}) {
   const dimInk = rgba(s.ink, 0.78);
   const side = s.console.side;
   const midY = side === "bottom" ? 34 : side === "top" ? 56 : 42;
+  // the console tells the page how tall it is (--bnw-panel); the words keep clear of it
   const textPos = {
-    top: `top:${side === "top" ? 30 : 7}vh;left:50%;transform:translateX(-50%);text-align:center;`,
+    top: `top:${side === "top" ? "calc(var(--bnw-panel, 30vh) + 4vh)" : "7vh"};left:50%;transform:translateX(-50%);text-align:center;`,
     center: `top:${midY}%;left:50%;transform:translate(-50%,-50%);text-align:center;`,
-    bottom: `bottom:${side === "bottom" ? 36 : 12}vh;left:50%;transform:translateX(-50%);text-align:center;`,
+    bottom: `bottom:${side === "bottom" ? "calc(var(--bnw-panel, 36vh) + 5vh)" : "12vh"};left:50%;transform:translateX(-50%);text-align:center;`,
     left: `top:${midY}%;left:${side === "left" ? 28 : 7}vw;transform:translateY(-50%);text-align:left;`,
     right: `top:${midY}%;right:${side === "right" ? 28 : 7}vw;transform:translateY(-50%);text-align:right;`,
   }[s.text_place];
@@ -436,13 +451,13 @@ body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-f
 .el.candle, .el.fire, .el.lantern, .el.star, .el.window { animation: flicker calc(3s / var(--speed)) ease-in-out infinite alternate; animation-delay: var(--d); }
 .el.lighthouse { animation: sweep calc(8s / var(--speed)) linear infinite; }
 .el.windmill { animation: none; }
-.words { position: absolute; ${textPos} max-width: 46ch; padding: 0 24px; text-shadow: ${haloDark}; }
+.words { position: absolute; ${textPos} max-width: min(46ch, 92vw); padding: 0 18px; text-shadow: ${haloDark}; }
 h1 { margin: 0 0 14px; font-weight: 300; font-size: ${titleSize}; letter-spacing: ${s.font === "mono" ? "0.06em" : "0.04em"}; line-height: 1.05; color: ${s.ink}; }
 h1::after { content: ""; display: block; width: 3em; height: 1px; margin: 16px auto 0; background: ${s.accent}; opacity: .8; }
 .words.left h1::after, .words.right h1::after { margin-left: ${s.text_place === "left" ? 0 : "auto"}; margin-right: ${s.text_place === "right" ? 0 : "auto"}; }
 .w { --p: 1; opacity: calc(0.62 + 0.38 * var(--p)); text-shadow: 0 0 calc(14px * (1 - var(--p))) ${rgba(s.accent, 0.9)}; transition: opacity 0.4s; }
 .w:hover { opacity: 1; }
-p { margin: 0 0 8px; font-size: clamp(16px, 2.3vmin, 24px); line-height: 1.5; font-style: ${s.font === "mono" ? "normal" : "italic"}; color: ${dimInk}; }
+p { margin: 0 0 8px; font-size: clamp(15px, 2.3vmin, 24px); line-height: 1.5; font-style: ${s.font === "mono" ? "normal" : "italic"}; color: ${dimInk}; }
 .wx { position: absolute; inset: 0; pointer-events: none; }
 .stars { background-image: radial-gradient(1px 1px at 12% 18%, ${s.ink} 50%, transparent 60%), radial-gradient(1px 1px at 30% 40%, ${s.ink} 50%, transparent 60%), radial-gradient(1.5px 1.5px at 52% 12%, ${s.ink} 50%, transparent 60%), radial-gradient(1px 1px at 70% 30%, ${s.ink} 50%, transparent 60%), radial-gradient(1px 1px at 88% 8%, ${s.ink} 50%, transparent 60%), radial-gradient(1.5px 1.5px at 42% 26%, ${s.ink} 50%, transparent 60%), radial-gradient(1px 1px at 8% 48%, ${s.ink} 50%, transparent 60%), radial-gradient(1px 1px at 62% 44%, ${s.ink} 50%, transparent 60%), radial-gradient(1px 1px at 94% 36%, ${s.ink} 50%, transparent 60%), radial-gradient(1px 1px at 22% 6%, ${s.ink} 50%, transparent 60%); background-size: 100% 100%; opacity: .8; animation: twinkle calc(6s / var(--speed)) ease-in-out infinite alternate; }
 .rain { background-image: repeating-linear-gradient(100deg, transparent 0 22px, ${rgba(s.ink, 0.22)} 22px 23px, transparent 23px 41px); background-size: 200px 300px; animation: rain calc(0.8s / var(--s)) linear infinite; opacity: .75; }

@@ -1,0 +1,59 @@
+// Records the demos: opens the real app in a Chrome started with
+// --remote-debugging-port=9333 (see drive.mjs), wishes each wish, waits for
+// the dream, and writes what the model actually produced into demos.js: the
+// spec, every token with the certainty it gave it and the roads not taken,
+// the ghosts, the certainty of its words. Nothing in demos.js is hand-made.
+//
+//   node tools/record-demos.mjs http://localhost:8765 "a quiet island at dusk" "a neon city in the rain" ...
+import { writeFileSync } from "node:fs";
+
+const PORT = process.env.CDP_PORT || 9333;
+const [base, ...wishes] = process.argv.slice(2);
+if (!base || !wishes.length) { console.log("usage: node tools/record-demos.mjs <app url> <wish>..."); process.exit(1); }
+
+const targets = async () => (await fetch(`http://localhost:${PORT}/json`)).json();
+async function connect(id) {
+  const t = (await targets()).find((x) => x.id === id);
+  const ws = new WebSocket(t.webSocketDebuggerUrl);
+  await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
+  let seq = 0; const pending = new Map();
+  ws.onmessage = (m) => { const d = JSON.parse(m.data); if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); } };
+  const send = (method, params = {}) => new Promise((r) => { const id = ++seq; pending.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
+  return { send, close: () => ws.close() };
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const id = (await (await fetch(`http://localhost:${PORT}/json/new?${encodeURIComponent(base + "/?nosky")}`, { method: "PUT" })).json()).id;
+await sleep(2500);
+const s = await connect(id);
+const evaluate = async (expression) => { const r = await s.send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }); if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || "eval failed"); return r.result?.result?.value; };
+
+// wake, once
+await evaluate(`document.querySelector("bnw-console").dispatchEvent(new CustomEvent("wake"))`);
+for (let i = 0; i < 600; i++) { if (await evaluate(`!!window.__bnw.engine`)) break; await sleep(2000); if (i % 10 === 0) console.log("waking…", await evaluate(`document.title`)); }
+if (!(await evaluate(`!!window.__bnw.engine`))) throw new Error("the mind did not wake");
+console.log("awake");
+
+const demos = [];
+for (const wish of wishes) {
+  // each demo starts from world zero, so none is an edit of the one before
+  await evaluate(`window.__bnw.current = 0; (() => { const c = document.querySelector("bnw-console"); c.wish = ${JSON.stringify(wish)}; c.submit(); })()`);
+  const before = await evaluate(`window.__bnw.worlds.length`);
+  for (let i = 0; i < 120; i++) { await sleep(1000); if ((await evaluate(`window.__bnw.worlds.length`)) > before - 1 && !(await evaluate(`window.__bnw.dreaming`)) && (await evaluate(`window.__bnw.worlds.length`)) > before) break; }
+  const w = await evaluate(`JSON.stringify((() => { const w = window.__bnw.worlds.at(-1); return { wish: w.wish, spec: w.spec, ghosts: w.ghosts, certainty: w.certainty, retries: w.retries, issues: w.issues.map(i => i.kind), seconds: w.seconds, model: w.model, date: w.date, tokens: w.tokens.map(t => ({ token: t.token, p: +t.p.toFixed(3), alts: t.alts.slice(0, 5).map(a => ({ token: a.token, p: +a.p.toFixed(3) })) })) }; })())`);
+  const d = JSON.parse(w);
+  console.log(`${wish} → "${d.spec?.title}" · ${d.tokens.length} tokens · ${d.seconds?.toFixed(1)} s · retries ${d.retries} · console ${d.spec?.console.side}/${d.spec?.console.tone}/${d.spec?.console.shape} · buttons ${d.spec?.console.buttons.map((b) => b.label + "→" + b.action).join(", ")}`);
+  if (!d.spec) { console.log("  no spec, skipped"); continue; }
+  demos.push(d);
+}
+s.close();
+await fetch(`http://localhost:${PORT}/json/close/${id}`);
+
+const header = `// Dreams the shipped model actually had, recorded by tools/record-demos.mjs
+// from the real app: the spec it wrote, every token with the certainty it
+// gave it, the ghosts, and the per-character certainty of its words. They are
+// replayed on the page without a model, so a phone with no WebGPU still
+// sees what this is. Nothing in here was written by hand.
+`;
+writeFileSync(new URL("../demos.js", import.meta.url), header + "export const DEMOS = " + JSON.stringify(demos) + ";\n");
+console.log(`wrote demos.js with ${demos.length} dreams`);

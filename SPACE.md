@@ -13,66 +13,72 @@ short_description: A tiny in-browser model dreams your world into the page
 
 *The brave new world is, in fact, always inside.*
 
-Tell a very small language model how your world looks. It writes the page,
-token by token, entirely inside your browser, and then the page *becomes* that
-world: its colors, its type, its shapes. The console you type into lives inside
-whatever was dreamed and takes its colors from it.
+A very small language model lives in this tab. Wake it (one button, 300 MB
+once) and say what world you want: a place, a mood, one word, a change to
+what is on screen. The page becomes that world, token by token, entirely
+inside your browser: its colors, its things, its poem, its type, and the panel
+you are wishing from. The model designs that panel too: which edge it sits on,
+its tone and shape, the invitation in the input, the word on the button, the
+levers beside it, and the doors that lead out of this world into the next.
 
-While it dreams, you watch its insides. Every glyph glows with the probability
-the model gave it, and hovering one shows the words it almost said instead.
+Not a chat. A world, with buttons.
+
+While it dreams you watch its insides. Every token glows with the probability
+the model gave it, tapping one shows the words it almost said, and the things
+it almost placed are drawn as ghosts at the probability they almost had.
+
+Three worlds it already dreamt can be stepped into without downloading
+anything, on any browser, on a phone. Their levers work; their doors wake the
+mind.
 
 ## What is where
 
 - `index.html`, `style.css`: world zero, the page before anyone has wished.
-- `app.js`: wakes the model, streams the dream, hands it to the harness, and
-  lets the result take over the page.
+- `app.js`: wakes the model on demand, streams the dream, hands it to the
+  harness, lets the result take over the page, replays the remembered dreams.
 - `console.js`: the one element the model never writes, in a shadow root so no
-  dreamed CSS can break it. The ribbon, the sparkline, the sky, the prompt.
-- `mind.js`: the contract. The system prompt, the models on offer, the harness,
-  the 32 held-out wishes and the scorer. `eval.html` imports this file, so the
-  eval measures exactly what ships.
+  dreamed CSS can break it. One wake button, one line to wish into, the
+  model's levers and doors, the ribbon of its certainty, the creature.
+- `mind.js`: the contract. The prompt, the models on offer, the harness, the
+  wish sets and the scorer. `eval.html` imports this file, so the eval
+  measures exactly what ships.
+- `world.js`: the vocabulary, the grammar, the painter, the levers.
+- `demos.js`: three real dreams, recorded token by token by
+  `tools/record-demos.mjs`. Nothing in it is hand-made.
 - `eval.html`, `eval.js`: every candidate model gets the same prompt, the same
-  wishes, the same settings; results and thumbnails side by side, exportable.
+  wishes, the same settings; results side by side. `?set=ambiguous` asks the
+  vague things people type; `?set=followups` asks for edits to a fixed world.
 - `evals/`: what was measured, and when.
 
 ## The harness
 
-A 0.5B model writes HTML the way a child draws a house: recognisable, and not
-to code. Every attempt goes through `inspect()` in `mind.js`, which:
-
-1. cuts the document out of whatever surrounds it and counts the chatter;
-2. counts the tags it will have to close, and the lines that merely repeat;
-3. removes anything that runs, loads or asks (scripts, images, links, forms,
-   event handlers, `url()`), so a dreamed page can safely own the real page;
-4. parses every stylesheet with the browser's own parser and keeps only the
-   rules it accepted, reporting how many were dropped;
-5. calls the result **fatal** when there are no CSS rules, no body, or mostly
-   repetition. Then the model is shown its attempt and asked again, at most
-   twice. Everything else is repaired in place and reported in the console,
-   never silently.
+A 0.5B model writes HTML the way a child draws a house, so it is never asked
+to. It fills a grammar-enforced JSON spec; the sampler cannot produce anything
+else. What can still go wrong is language: at heat a small model drifts into
+symbols and glued-together words. `gibberish()` in `mind.js` catches that in
+the title, the lines, the labels and the doors, and the model is shown its
+attempt and asked again, at most twice. Everything else is repaired in place
+and reported in the console, never silently.
 
 ## Certainty, honestly
 
-WebLLM reports each token's probability *after* the sampling temperature, which
-sharpens the distribution. The ribbon undoes that from the top five
+WebLLM reports each token's probability *after* the sampling temperature,
+which sharpens the distribution. The ribbon undoes that from the top five
 alternatives (`detemper()` in `mind.js`), so what you see is the model's own
 distribution at temperature 1, restricted to those five. It ignores the tail,
-so it is an upper bound on certainty, and the boilerplate really is that
-certain: a small coder model hesitates at colors and adjectives, not at braces.
+so it is an upper bound on certainty.
 
 ## Running it
 
-Needs WebGPU. Chrome and Edge have it; on Linux, Chrome needs
-`chrome://flags/#enable-unsafe-webgpu` and `chrome://flags/#enable-vulkan`.
-The first visit downloads the weights (300 MB for the default model); later
-visits use the browser cache. Add `?mock` for a dry run without a GPU, and
-`?wish=…` to dream on load.
+Needs WebGPU for the mind: Chrome, Edge, Safari 26, Firefox where it has
+shipped. On Linux, Chrome needs `chrome://flags/#enable-unsafe-webgpu` and
+`#enable-vulkan`. The first wake fetches the weights (300 MB); later visits use
+the browser cache. `?mock` dry-runs without a GPU, `?wish=…` dreams on load,
+`?demo=0` opens a remembered dream, `?model=` picks another WebLLM model.
 
 ```bash
-python3 -m http.server 8000     # then open http://localhost:8000
+python3 tools/serve.py 8765     # then open http://localhost:8765
 ```
 
-`tools/drive.mjs` runs the app or the eval from a shell through Chrome's
-debugging port, with nothing but Node.
-
-Built with [WebLLM](https://github.com/mlc-ai/web-llm).
+Built with [WebLLM](https://github.com/mlc-ai/web-llm). Code and evals:
+https://github.com/moudrkat/brave-new-world

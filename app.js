@@ -1,10 +1,15 @@
-import { CreateWebWorkerMLCEngine } from "https://esm.run/@mlc-ai/web-llm@0.2.85";
-import { MODELS, STRATEGIES, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction } from "./mind.js";
+import { MODELS, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction } from "./mind.js";
+import { DEMOS } from "./demos.js";
 import "./console.js";
 
 const PARAMS = new URLSearchParams(location.search);
 const MOCK = PARAMS.has("mock");
 const MAX_RETRIES = 2;
+// The mind is not a choice on the page: it is the one that measured best for
+// its size (evals/). ?model= still picks another for the eval and the curious.
+const MODEL = PARAMS.get("model") && MODELS.some((m) => m.id === PARAMS.get("model")) ? PARAMS.get("model") : MODELS[0].id;
+const STRATEGY = PARAMS.get("strategy") === "html" ? "html" : "spec";
+const WEBLLM = "https://esm.run/@mlc-ai/web-llm@0.2.85";
 
 const con = document.querySelector("bnw-console");
 const worldStyle = document.getElementById("world-style");
@@ -12,10 +17,10 @@ const worldZero = { html: "<!DOCTYPE html>" + document.documentElement.outerHTML
 
 const state = {
   engine: null,
-  loadedModel: null,
-  loading: false,
+  modelId: null,
+  waking: null, // the promise, so a second press joins the first download
   dreaming: false,
-  worlds: [], // { wish, html, issues, retries }
+  worlds: [], // { wish, html, spec, issues, retries, tokens, raw }
   current: -1,
   lastRaw: "",
 };
@@ -28,51 +33,62 @@ window.__bnw = state;
   if (!ok) document.documentElement.classList.add("low-power");
 })();
 
-con.setModels(MODELS, PARAMS.get("model") && MODELS.some((m) => m.id === PARAMS.get("model")) ? PARAMS.get("model") : MODELS[0].id);
-con.setStrategies(STRATEGIES, STRATEGIES.some((x) => x.id === PARAMS.get("strategy")) ? PARAMS.get("strategy") : "spec");
-
 /* ------------------------------------------------------------------ */
-/* engine                                                              */
+/* engine: fetched only when asked, once, into the browser's cache     */
 /* ------------------------------------------------------------------ */
 
-async function wake() {
-  const modelId = con.model;
-  if (state.engine && state.loadedModel === modelId) return state.engine;
-  if (MOCK) {
-    state.engine = mockEngine();
-    state.loadedModel = modelId;
-    con.setStatus("awake · dry run, no model");
-    return state.engine;
-  }
-  if (!navigator.gpu || !(await navigator.gpu.requestAdapter().catch(() => null))) {
-    con.setStatus("this browser has no webgpu adapter: try chrome or edge, or enable vulkan in chrome://flags", true);
-    throw new Error("WebGPU unavailable");
-  }
-  state.loading = true;
-  con.setProgress(0);
-  con.setStatus("waking " + modelId + " · the first time fetches its weights");
-  const onProgress = (r) => {
-    con.setProgress(r.progress || 0);
-    con.setStatus(Math.round((r.progress || 0) * 100) + "% · " + (r.text || "").replace(/\[.*?\]/g, "").trim().slice(0, 90));
-  };
-  try {
-    if (!state.engine) {
+// What this browser can run. The prebuilt q4f16 weights need the shader-f16
+// feature; a GPU without it gets the q4f32 build of the same model, which is
+// larger and slower but the same mind.
+async function pickModel() {
+  if (!navigator.gpu) throw new Error("this browser has no WebGPU. Chrome, Edge, Safari 26 or a recent Firefox can run the mind; the worlds it already dreamt work anywhere");
+  const adapter = await navigator.gpu.requestAdapter().catch(() => null);
+  if (!adapter) throw new Error("WebGPU is here but gave no adapter. On Linux Chrome, enable chrome://flags/#enable-unsafe-webgpu and #enable-vulkan");
+  let id = MODEL;
+  if (!adapter.features.has("shader-f16") && /q4f16_1/.test(id)) id = id.replace("q4f16_1", "q4f32_1");
+  return id;
+}
+
+const MB = { "Qwen2.5-Coder-0.5B-Instruct-q4f16_1-MLC": 300, "Qwen2.5-Coder-0.5B-Instruct-q4f32_1-MLC": 340 };
+
+function wake() {
+  if (state.engine) return Promise.resolve(state.engine);
+  if (state.waking) return state.waking;
+  state.waking = (async () => {
+    try {
+      if (MOCK) {
+        state.engine = mockEngine();
+        state.modelId = MODEL;
+        con.setAwake(true);
+        con.setStatus("awake · dry run, no model");
+        return state.engine;
+      }
+      const modelId = await pickModel();
+      const size = MB[modelId] ? `${MB[modelId]} MB` : "its weights";
+      con.setWaking(`fetching ${size} once, into this browser's cache…`);
+      con.setStatus("waking · the first time fetches its weights, later visits use the cache");
+      const onProgress = (r) => {
+        const pct = Math.round((r.progress || 0) * 100);
+        con.setProgress(r.progress || 0);
+        con.setWaking(`${pct}% · ${(r.text || "").replace(/\[.*?\]/g, "").trim().slice(0, 70) || "fetching"}`);
+      };
+      const { CreateWebWorkerMLCEngine } = await import(WEBLLM);
       const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
       state.engine = await CreateWebWorkerMLCEngine(worker, modelId, { initProgressCallback: onProgress }, chatOptsFor(modelId));
-    } else {
-      state.engine.setInitProgressCallback(onProgress);
-      await state.engine.reload(modelId, chatOptsFor(modelId));
+      state.modelId = modelId;
+      con.setAwake(true);
+      con.setStatus("awake · " + modelId.replace(/-MLC$/, "") + " · say what world you want, or just a word");
+      con.focus();
+      return state.engine;
+    } catch (err) {
+      con.setAwake(false, "could not wake · " + (err?.message || err));
+      con.setStatus(String(err?.message || err), true);
+      throw err;
+    } finally {
+      state.waking = null;
     }
-    state.loadedModel = modelId;
-  } catch (err) {
-    con.setStatus("could not wake: " + (err?.message || err), true);
-    throw err;
-  } finally {
-    state.loading = false;
-    con.setProgress(null);
-  }
-  con.setStatus("awake · " + modelId);
-  return state.engine;
+  })();
+  return state.waking;
 }
 
 /* ------------------------------------------------------------------ */
@@ -80,8 +96,16 @@ async function wake() {
 /* ------------------------------------------------------------------ */
 
 let applied = "";
-function applyWorld(html, { partial = false } = {}) {
+let designOf = null;
+// One world dissolves into the next. The browser's view transition crossfades
+// the page and moves the console from wherever it was to wherever the model
+// put it now; a browser without the API just swaps.
+function applyWorld(html, opts = {}) {
   if (!html || html === applied) return;
+  if (opts.partial || !document.startViewTransition || document.documentElement.classList.contains("low-power")) return swapWorld(html, opts);
+  document.startViewTransition(() => swapWorld(html, opts));
+}
+function swapWorld(html, { partial = false } = {}) {
   applied = html;
   const doc = new DOMParser().parseFromString(html, "text/html");
   const isZero = doc.body?.classList.contains("world-zero");
@@ -99,8 +123,8 @@ function applyWorld(html, { partial = false } = {}) {
   const words = getComputedStyle(document.documentElement).getPropertyValue("--bnw-words").trim();
   if (words) con.dataset.words = words; else delete con.dataset.words;
   if (!partial) con.applyDesign(designOf ? designOf : side === "top" ? { side: "top" } : null);
+  window.scrollTo(0, 0);
 }
-let designOf = null;
 
 // The model may set --bnw-* on :root. When it did not, the console takes the
 // world's own background and text color, and its most saturated color as accent.
@@ -154,10 +178,13 @@ function parseColor(str) {
 /* dreaming                                                            */
 /* ------------------------------------------------------------------ */
 
+// The world on screen goes into the conversation, so "make it night" or
+// "more birds" is a change to it rather than a new place. A remembered dream
+// counts too: it has a spec like any other.
 function messagesFor(wish, strategy) {
   const msgs = [{ role: "system", content: systemFor(strategy) }];
   const prev = state.worlds[state.current];
-  if (prev && !prev.zero && prev.strategy === strategy) {
+  if (prev && !prev.zero && (strategy === "spec" ? prev.spec : prev.html)) {
     msgs.push({ role: "user", content: prev.wish });
     msgs.push({ role: "assistant", content: strategy === "spec" ? JSON.stringify(prev.spec) : prev.html });
   }
@@ -166,7 +193,7 @@ function messagesFor(wish, strategy) {
 }
 
 async function generate(engine, messages, wish, strategy) {
-  const request = requestFor(con.model, messages, {}, strategy);
+  const request = requestFor(state.modelId || MODEL, messages, {}, strategy);
   con.temperature = request.temperature;
   let raw = "", n = 0, finish = null, lastPaint = 0;
   const tokens = []; // every token with its offsets and de-tempered alternatives, for the ghosts
@@ -177,7 +204,7 @@ async function generate(engine, messages, wish, strategy) {
     if (choice?.delta?.content) raw += choice.delta.content;
     if (choice?.finish_reason) finish = choice.finish_reason;
     const lps = choice?.logprobs?.content;
-    if (lps) for (const lp of lps) { const d = con.addToken(lp); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts }); n++; }
+    if (lps) for (const lp of lps) { const d = con.addToken(lp); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; }
     const now = performance.now();
     if (now - lastPaint > 800) {
       lastPaint = now;
@@ -195,13 +222,13 @@ async function dream(wish) {
   con.setDreaming(true);
   con.setStatus("dreaming · " + wish);
 
-  const strategy = con.strategy;
+  const strategy = STRATEGY;
   let messages = messagesFor(wish, strategy);
-  let report = null, retries = 0, raw = "", t0 = performance.now();
+  let report = null, retries = 0, raw = "", t0 = performance.now(), out = null;
   const attempts = [];
   try {
     for (;;) {
-      const out = await generate(engine, messages, wish, strategy);
+      out = await generate(engine, messages, wish, strategy);
       raw = out.raw;
       report = dreamToPage(raw, wish, out.finish, strategy, out.tokens);
       attempts.push({ raw, finish: out.finish, tokens: out.n, seconds: out.seconds, issues: report.issues });
@@ -225,60 +252,104 @@ async function dream(wish) {
 
   const html = report ? report.html : extractHtml(raw, wish, true);
   state.lastRaw = raw;
-  designOf = report?.spec?.console || null;
+  designOf = report?.spec ? { ...report.spec.console, next: report.spec.next } : null;
   applyWorld(html);
   // the world is as restless as the model was unsure
   if (report?.spec) document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[report.spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
-  if (report?.ghosts?.length) con.setHarness(con.$("harness").textContent + ` · ${report.ghosts.length} ghost${report.ghosts.length > 1 ? "s" : ""} of what it almost placed`);
-  state.worlds.push({ wish, html, issues: report?.issues || [], retries, attempts, strategy, spec: report?.spec || null, ghosts: report?.ghosts || [], certainty: report?.certainty || null });
+  if (report?.ghosts?.length) con.setHarness(con.harnessText + ` · ${report.ghosts.length} ghost${report.ghosts.length > 1 ? "s" : ""} of what it almost placed`);
+  state.worlds.push({ wish, html, issues: report?.issues || [], retries, attempts, strategy, spec: report?.spec || null, ghosts: report?.ghosts || [], certainty: report?.certainty || null,
+    raw, tokens: out?.tokens || [], seconds: out?.seconds || 0, model: state.modelId, date: new Date().toISOString() });
   state.current = state.worlds.length - 1;
   con.renderHistory(state.worlds, state.current, pick);
   state.dreaming = false;
   con.setDreaming(false);
-  con.setStatus(`dreamt in ${((performance.now() - t0) / 1000).toFixed(1)} s` + (retries ? ` after ${retries} ${retries === 1 ? "retry" : "retries"}` : ""));
+  con.setStatus(`dreamt in ${((performance.now() - t0) / 1000).toFixed(1)} s` + (retries ? ` after ${retries} ${retries === 1 ? "retry" : "retries"}` : "") + " · the buttons are its idea");
   con.focus();
 }
 
 function pick(i) {
   state.current = i;
-  designOf = state.worlds[i].spec?.console || null;
+  designOf = state.worlds[i].spec ? { ...state.worlds[i].spec.console, next: state.worlds[i].spec.next } : null;
   applyWorld(state.worlds[i].html);
   con.renderHistory(state.worlds, state.current, pick);
 }
 
-// A button the model invented was pressed. Some ask the model, the rest are levers on the engine.
+/* ------------------------------------------------------------------ */
+/* remembered dreams: real runs, recorded, replayed without a model    */
+/* ------------------------------------------------------------------ */
+
+let replaying = 0;
+async function playDemo(i) {
+  const d = DEMOS[i];
+  if (!d || state.dreaming) return;
+  const token = ++replaying;
+  const spec = d.spec;
+  const html = renderWorld(spec, { ghosts: d.ghosts || [], certainty: d.certainty || null });
+  designOf = { ...spec.console, next: spec.next };
+  con.setDreaming(true);
+  con.setStatus("remembering · " + d.wish);
+  // the tokens it wrote that day, at their real certainties, faster than it wrote them
+  const t0 = performance.now();
+  const toks = d.tokens || [];
+  for (let k = 0; k < toks.length; k++) {
+    if (token !== replaying) return;
+    const t = toks[k];
+    con.paintToken(t.token, t.p, t.alts || [{ token: t.token, p: t.p }]);
+    if (k % 8 === 0) con.updateStats(t0, k + 1, "replayed");
+    if (k % 3 === 0) await new Promise((r) => setTimeout(r, 12));
+  }
+  con.updateStats(t0, toks.length, "replayed");
+  applyWorld(html);
+  document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
+  con.setHarness(`a dream it had on ${(d.date || "").slice(0, 10)} · ${d.model ? d.model.replace(/-MLC$/, "") : "the same mind"} · ${toks.length} tokens in ${(d.seconds || 0).toFixed(1)} s` + (d.ghosts?.length ? ` · ${d.ghosts.length} ghost${d.ghosts.length > 1 ? "s" : ""}` : ""));
+  state.worlds.push({ wish: d.wish, html, spec, issues: [], retries: 0, strategy: "spec", ghosts: d.ghosts || [], certainty: d.certainty || null, demo: true });
+  state.current = state.worlds.length - 1;
+  con.renderHistory(state.worlds, state.current, pick);
+  state.dreaming = false;
+  con.setDreaming(false);
+  con.setStatus("a world it dreamt before · its levers still work · wake it to dream your own");
+}
+con.setDemos(DEMOS, playDemo);
+
+/* ------------------------------------------------------------------ */
+/* the buttons the model invented                                      */
+/* ------------------------------------------------------------------ */
+
+// It names the button; the engine does the thing. Some ask the model again,
+// the rest are levers on the world's spec, so they work on a remembered dream
+// too, without a model.
 const SURPRISES = ["a greenhouse on the moon", "a bathhouse for dragons", "the last train before the flood", "a lighthouse in a wheat field", "a violin shop at closing time", "a city where it rains upward", "an orchard on a glacier", "the waiting room of the sea"];
 function act(action) {
   const cur = state.worlds[state.current];
   if (state.dreaming) return;
-  if (action === "inside") return con.$("toggle").click();
+  if (action === "inside") return con.toggleInside();
   if (action === "undo") return state.current > 0 ? pick(state.current - 1) : con.setStatus("nothing before this");
   if (action === "again") { con.wish = cur?.zero ? SURPRISES[0] : cur.wish; return con.submit(); }
   if (action === "surprise") { con.wish = SURPRISES[Math.floor(Math.random() * SURPRISES.length)]; return con.submit(); }
   if (!cur?.spec) return con.setStatus("this world has no such lever");
   const spec = applyAction(cur.spec, action);
   const html = renderWorld(spec, { ghosts: cur.ghosts || [], certainty: cur.certainty || null });
-  state.worlds.push({ ...cur, spec, html, wish: cur.wish + " · " + action, zero: false });
+  state.worlds.push({ ...cur, spec, html, wish: cur.wish + " · " + action, zero: false, demo: false });
   state.current = state.worlds.length - 1;
-  designOf = spec.console;
+  designOf = { ...spec.console, next: spec.next };
   applyWorld(html);
   con.renderHistory(state.worlds, state.current, pick);
-  con.setStatus(action + " · by the engine, not the model");
+  con.setStatus(action + " · the model named this button, the engine pulled the lever");
 }
 con.addEventListener("action", (e) => act(e.detail));
 
+con.addEventListener("wake", () => wake().catch(() => {}));
 con.addEventListener("wish", (e) => {
-  if (state.dreaming || state.loading) return;
+  if (state.dreaming) return;
   dream(e.detail).catch((err) => {
     console.error(err);
-    con.setStatus("the dream broke: " + (err?.message || err), true);
+    if (!con.awake) con.setStatus("wake the mind first, or step into a world it already dreamt", true);
+    else con.setStatus("the dream broke: " + (err?.message || err), true);
     state.dreaming = false;
     con.setDreaming(false);
   });
 });
-con.addEventListener("stop", () => { state.dreaming = false; state.engine?.interruptGenerate(); });
-con.addEventListener("strategy", () => {});
-con.addEventListener("model", () => { if (state.engine && !state.dreaming && !state.loading) wake().catch(() => {}); });
+con.addEventListener("stop", () => { state.dreaming = false; replaying++; state.engine?.interruptGenerate(); });
 
 /* ------------------------------------------------------------------ */
 /* a dry run for browsers without a GPU                                */
@@ -293,32 +364,8 @@ function mockEngine() {
   const specDoc = JSON.stringify({ title: "A Quiet Island", time: "dusk", weather: "stars", sky: ["#2b1b4e", "#7a4f8c", "#c98a9a"], ground: "sea", ground_color: "#5e4b8b", ink: "#f6e9dc", accent: "#ffd9a0", font: "serif", text_place: "top", motion: "slow",
     elements: [{ kind: "sun", x: "center", y: "horizon", size: "large", color: "#ffb37a", count: 1 }, { kind: "lighthouse", x: "right", y: "horizon", size: "medium", color: "#f6e9dc", count: 1 }, { kind: "bird", x: "left", y: "high", size: "tiny", color: "#2b1b4e", count: 5 }, { kind: "boat", x: "far-left", y: "ground", size: "small", color: "#3a2a5e", count: 1 }],
     lines: ["The sea keeps its lavender secret.", "One lighthouse counts the evening slowly, and nobody asks it to hurry."],
-    console: { side: "bottom", tone: "glass", shape: "soft", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "night" }, { label: "some rain", action: "rain" }, { label: "elsewhere", action: "surprise" }] } });
-  const doc = `<!DOCTYPE html>
-<html>
-<head>
-<title>A Quiet Island</title>
-<style>
-:root { --bnw-accent: #ffd9a0; }
-html, body { margin: 0; min-height: 100%; }
-body { background: linear-gradient(180deg, #2b1b4e 0%, #7a4f8c 45%, #c98a9a 70%, #3a2a5e 100%); color: #f6e9dc; font-family: Georgia, serif; overflow: hidden; height: 100vh; }
-h1 { position: absolute; top: 12vh; width: 100%; text-align: center; font-weight: 300; font-size: 56px; letter-spacing: 0.1em; margin: 0; }
-p { position: absolute; top: 52vh; width: 60%; left: 20%; text-align: center; font-size: 22px; line-height: 1.6; font-style: italic; }
-.sun { position: absolute; left: 50%; top: 34%; width: 180px; height: 180px; margin-left: -90px; border-radius: 50%; background: radial-gradient(circle, #ffd9a0, #ff9a76 60%, transparent 70%); }
-.sea { position: absolute; bottom: 0; width: 100%; height: 40%; background: linear-gradient(180deg, #b39ddb, #5e4b8b); }
-.tower { position: absolute; bottom: 38%; left: 68%; width: 18px; height: 120px; background: #f6e9dc; }
-.broken { color: ; }
-</style>
-</head>
-<body>
-<div class="sea"></div>
-<div class="sun"></div>
-<div class="tower"></div>
-<h1>A Quiet Island</h1>
-<p>The sea keeps its lavender secret. One lighthouse counts the evening slowly, and nobody asks it to hurry.</p>
-<script>alert("no")</script>
-</body>
-</html>`;
+    console: { side: ["bottom", "top", "left", "right"][Math.floor(Math.random() * 4)], tone: "glass", shape: "pill", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "night" }, { label: "some rain", action: "rain" }, { label: "elsewhere", action: "surprise" }] }, next: ["the lighthouse keeper's room", "the same island at night", "a boat going out"] });
+  const doc = `<!DOCTYPE html><html><head><title>A Quiet Island</title><style>html,body{margin:0;height:100%}body{background:linear-gradient(180deg,#2b1b4e,#c98a9a);color:#f6e9dc;font-family:Georgia,serif}h1{position:absolute;top:12vh;width:100%;text-align:center;font-weight:300}</style></head><body><h1>A Quiet Island</h1><p>The sea keeps its lavender secret.</p></body></html>`;
   const words = ["the", "a", "sea", "light", "dusk", "quiet", "#", "div", "px", "color"];
   let stop = false;
   return {
@@ -348,6 +395,8 @@ p { position: absolute; top: 52vh; width: 60%; left: 20%; text-align: center; fo
 state.worlds.push({ wish: "world zero", html: worldZero.html, issues: [], retries: 0, zero: true });
 state.current = 0;
 con.renderHistory(state.worlds, 0, pick);
-con.setStatus(MOCK ? "asleep · dry run" : "asleep · press enter to wake it");
-con.focus();
-if (PARAMS.get("wish")) { con.wish = PARAMS.get("wish"); con.submit(); }
+con.setAwake(false, MOCK ? "dry run · no download" : navigator.gpu ? "300 MB once, then nothing leaves your device" : "needs WebGPU: Chrome, Edge or Safari 26 · the dreams below work here");
+con.setStatus(MOCK ? "asleep · dry run" : "asleep · nothing downloaded yet");
+if (PARAMS.get("demo") != null && DEMOS[+PARAMS.get("demo")]) playDemo(+PARAMS.get("demo"));
+else if (PARAMS.get("wish")) { con.wish = PARAMS.get("wish"); con.submit(); }
+else con.focus();

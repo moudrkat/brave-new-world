@@ -1,5 +1,5 @@
-import { SYSTEM_SPEC, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, ghostsFrom, cueHints, certaintyFrom } from "./world.js";
-export { SYSTEM_SPEC, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, ghostsFrom, cueHints, certaintyFrom };
+import { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, ghostsFrom, cueHints, certaintyFrom } from "./world.js";
+export { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, ghostsFrom, cueHints, certaintyFrom };
 
 // The user turn: the wish, and (for the tools path) what the words plainly say.
 export function userMessage(wish, strategy, { hints = true } = {}) {
@@ -98,7 +98,7 @@ export function dreamToPage(raw, wish, finish, strategy, tokens) {
     }
     const spec = normalizeSpec(parsed.spec);
     // prose that fell apart is as fatal as a page with no CSS
-    const bad = [spec.title, ...spec.lines, spec.console.prompt, spec.console.button, ...spec.console.buttons.map((b) => b.label)].filter(gibberish);
+    const bad = [spec.title, ...spec.lines, spec.console.prompt, spec.console.button, ...spec.console.buttons.map((b) => b.label), ...spec.next].filter(gibberish);
     if (bad.length) {
       return { html: renderWorld(spec), issues: [{ kind: "gibberish", detail: `words fell apart: ${bad.map((b) => JSON.stringify(b.slice(0, 30))).join(", ")}`, fatal: true }], fatal: true, spec, ghosts: [], certainty: null };
     }
@@ -183,6 +183,84 @@ export const WISHES = [
   "an abandoned swimming pool full of wildflowers",
   "a monastery on a cliff, bells, mist, and goats",
 ];
+
+// What people actually type is vaguer than the wishes above: one word, a
+// feeling, a greeting, another language, or a change to the world on screen.
+// None of these appear in the prompt either. Measured with the same scorer,
+// plus variety (does every vague wish become the same world?) and prose.
+export const AMBIGUOUS = [
+  "hi", "sad", "home", "blue", "make it pretty", "somewhere warm", "cat", "???", "i can't sleep",
+  "the opposite of this", "what are you", "ahoj, chci les a ticho", "🌧️", "monday", "anything", "my grandmother's garden",
+];
+
+// Follow-ups: a change to a world already in the conversation. Each names the
+// field that should move and how; everything else should stay. The prior
+// world is fixed, so every model edits the same page.
+export const PRIOR = {
+  wish: "a quiet island at dusk, lavender sea, one lighthouse",
+  spec: { title: "A Quiet Island", time: "dusk", weather: "clear", sky: ["#2b1b4e", "#7a4f8c", "#c98a9a"], ground: "sea", ground_color: "#5e4b8b", ink: "#f6e9dc", accent: "#ffd9a0", font: "serif", text_place: "top", motion: "slow",
+    elements: [{ kind: "sun", x: "center", y: "horizon", size: "large", color: "#ffb37a", count: 1 }, { kind: "lighthouse", x: "right", y: "horizon", size: "medium", color: "#f6e9dc", count: 1 }, { kind: "bird", x: "left", y: "high", size: "tiny", color: "#2b1b4e", count: 3 }, { kind: "boat", x: "far-left", y: "ground", size: "small", color: "#3a2a5e", count: 1 }],
+    lines: ["The sea keeps its lavender secret.", "One lighthouse counts the evening slowly, and nobody asks it to hurry."],
+    console: { side: "bottom", tone: "glass", shape: "soft", width: "wide", prompt: "what should the evening bring?", button: "wish", buttons: [{ label: "let night fall", action: "night" }, { label: "some rain", action: "rain" }] },
+    next: ["the lighthouse keeper's room", "the same island at night", "a boat going out"] },
+};
+export const FOLLOWUPS = [
+  { wish: "make it night", expect: (s) => s.time === "night" },
+  { wish: "let it rain", expect: (s) => s.weather === "rain" },
+  { wish: "more birds", expect: (s) => (s.elements.find((e) => e.kind === "bird")?.count || 0) > 3 || s.elements.filter((e) => e.kind === "bird").length > 1 },
+  { wish: "take the boat away", expect: (s) => !s.elements.some((e) => e.kind === "boat") },
+  { wish: "the same at noon", expect: (s) => s.time === "noon" },
+  { wish: "snow instead", expect: (s) => s.weather === "snow" || s.ground === "snow" },
+  { wish: "put the panel on the left", expect: (s) => s.console.side === "left" },
+  { wish: "add a whale", expect: (s) => s.elements.some((e) => e.kind === "whale") },
+  { wish: "make everything still", expect: (s) => s.motion === "still" },
+  { wish: "typewriter letters", expect: (s) => s.font === "mono" },
+  { wish: "fog", expect: (s) => s.weather === "fog" },
+  { wish: "a bigger lighthouse", expect: (s) => ["large", "huge"].includes(s.elements.find((e) => e.kind === "lighthouse")?.size) },
+];
+export const SETS = { wishes: WISHES, ambiguous: AMBIGUOUS, followups: FOLLOWUPS.map((f) => f.wish) };
+
+// How much of the prior world survived an edit: the share of top-level fields
+// (elements compared as a set of kinds) left as they were. An edit that keeps
+// nothing is a new world, not an edit.
+export function keptScore(prior, spec) {
+  if (!spec) return 0;
+  const keys = ["title", "time", "weather", "ground", "font", "text_place", "motion"];
+  let kept = 0, n = 0;
+  for (const k of keys) { n++; if (JSON.stringify(prior[k]) === JSON.stringify(spec[k])) kept++; }
+  n++; if (prior.sky.join() === spec.sky.join()) kept++;
+  const a = new Set(prior.elements.map((e) => e.kind)), b = new Set(spec.elements.map((e) => e.kind));
+  n++; kept += [...a].filter((k) => b.has(k)).length / Math.max(a.size, b.size, 1);
+  n++; if (prior.console.side === spec.console.side) kept++;
+  return kept / n;
+}
+
+// Do the buttons say what they do? For each button the model invented, does
+// its label contain a word that plainly belongs to the action it chose. A
+// lower bound: "sleep" for night does not count, and a poetic label can be
+// right without a keyword. Reported as such.
+const ACTION_WORDS = {
+  again: /again|once more|redo|repeat|another go|re-?dream|encore/i, surprise: /surprise|elsewhere|somewhere|random|another|new|wander|drift|else/i, undo: /undo|back|before|return|previous|unfold|rewind/i,
+  night: /night|dark|moon|sleep|stars|midnight|dusk|late/i, dawn: /dawn|morning|sunrise|wake|early|light/i, noon: /noon|midday|sun|day|bright|high/i, dusk: /dusk|evening|sunset|twilight|dim/i,
+  rain: /rain|storm|pour|wet|drizzle|shower/i, snow: /snow|winter|frost|white|cold|flake/i, stars: /star|night|sky|constellation|glitter/i, clear: /clear|calm|sun|still|quiet|clean|sky/i, fog: /fog|mist|haze|blur|veil/i,
+  calm: /calm|still|quiet|slow|rest|hush|freeze|pause/i, wild: /wild|storm|fast|restless|dance|shake|wind|alive/i, more: /more|another|add|again|fill|crowd|multiply|grow/i, less: /less|fewer|remove|take|quiet|empty|thin|clear/i, inside: /inside|within|mind|thought|see|look|show|open/i,
+};
+// The doors: do they lead somewhere? One point for each of: none repeats the
+// wish, none repeats another door, none repeats the title.
+export function doorSense(spec, wish) {
+  if (!spec?.next?.length) return 0;
+  const norm = (t) => String(t).toLowerCase().replace(/[^a-z ]/g, "").trim();
+  const w = norm(wish), title = norm(spec.title), doors = spec.next.map(norm);
+  const away = doors.filter((d) => d && d !== w && d !== title && !w.includes(d) && !d.includes(w)).length / doors.length;
+  const distinct = new Set(doors).size / doors.length;
+  return (away + distinct) / 2;
+}
+
+export function buttonSense(spec) {
+  if (!spec?.console?.buttons?.length) return null;
+  const b = spec.console.buttons;
+  return b.filter((x) => ACTION_WORDS[x.action]?.test(x.label)).length / b.length;
+}
 
 const STOP = new Set("a an the of in on at and or with one all under inside made full everything".split(" "));
 const NAMED = "red blue green yellow orange purple pink black white gray grey brown gold silver navy teal violet indigo lavender crimson coral salmon ivory beige tan olive lime cyan magenta maroon turquoise azure amber".split(" ");
@@ -375,6 +453,6 @@ export function gibberish(text) {
 
 export function proseScore(spec) {
   if (!spec) return null;
-  const parts = [spec.title, ...spec.lines, spec.console.prompt, spec.console.button, ...spec.console.buttons.map((b) => b.label)];
+  const parts = [spec.title, ...spec.lines, spec.console.prompt, spec.console.button, ...spec.console.buttons.map((b) => b.label), ...(spec.next || [])];
   return parts.length ? parts.filter((x) => !gibberish(x)).length / parts.length : null;
 }
