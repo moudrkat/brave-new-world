@@ -65,6 +65,15 @@ const CSS = `
 :host([data-tone="neon"]) button.go { text-shadow: 0 0 12px var(--accent); }
 :host([data-tone="light"]) button.go { background: var(--accent); color: var(--bg); border-radius: 999px; padding: 6px 16px; font-style: normal; }
 
+/* ---- the panel sits where the model's words are not: a narrow one floats as a
+   card on the empty side, a wide one leans that way, a full one takes the edge ---- */
+:host([data-width="narrow"]) .panel { border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 2.5vh; }
+:host([data-width="narrow"][data-side="top"]) .panel { margin-top: 2.5vh; margin-bottom: 0; border-radius: var(--radius); }
+:host([data-width="narrow"][data-words="left"]) .panel, :host([data-width="wide"][data-words="left"]) .panel { margin-left: auto; margin-right: 3vw; }
+:host([data-width="narrow"][data-words="right"]) .panel, :host([data-width="wide"][data-words="right"]) .panel { margin-right: auto; margin-left: 3vw; }
+:host([data-width="wide"]) .panel { max-width: 920px; }
+@media (max-width: 720px) { :host([data-width="narrow"]) .panel, :host([data-width="wide"]) .panel { margin: 0; border-radius: 0; max-width: none; } }
+
 /* ---- where the model put the panel ---- */
 :host([data-side="top"]) { top: 0; bottom: auto; }
 :host([data-side="top"]) .panel { border-radius: 0 0 var(--radius) var(--radius); border-top: 0; border-bottom: 1px solid var(--line); box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.7); padding-top: calc(10px + env(safe-area-inset-top)); }
@@ -455,7 +464,7 @@ export class BnwConsole extends HTMLElement {
     if (!this.dreaming) this.$("go").textContent = this.baseButton;
     const acts = this.$("acts");
     acts.innerHTML = "";
-    for (const b of d?.buttons || []) {
+    for (const b of d?.inWorld ? [] : d?.buttons || []) { // a dreamed world carries its levers itself, pinned to things
       const el = document.createElement("button");
       el.type = "button"; el.className = "act"; el.textContent = b.label; el.title = "a lever on this world: " + b.action;
       el.addEventListener("click", () => { el.classList.add("pressed"); setTimeout(() => el.classList.remove("pressed"), 700); this.dispatchEvent(new CustomEvent("action", { detail: b.action })); });

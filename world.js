@@ -439,6 +439,35 @@ function groundCss(spec) {
   }
 }
 
+// The levers, pinned in the scene to whatever they act on: a time lever by
+// the sun or the moon, a weather lever up in the sky, a ground lever on the
+// ground, a lever about a kind of thing beside that thing, and the ones that
+// ask the model beside the signpost. Pressing one is pressing the lever.
+function levers(s, horizon) {
+  const bs = (s.console?.buttons || []).slice(0, 3);
+  if (!bs.length) return "";
+  const signSide = s.text_place === "right" || s.console.side === "right" ? "left" : "right";
+  const els = s.elements;
+  const posOf = (e) => ({ x: X[e.x], y: Y[e.y] });
+  const taken = [];
+  const clear = (pt) => { let p = { ...pt }; for (let k = 0; k < 6 && taken.some((t) => Math.abs(t.x - p.x) < 14 && Math.abs(t.y - p.y) < 9); k++) p.y += 9; taken.push(p); return p; };
+  const html = bs.map((b, i) => {
+    const a = parseAction(b.action);
+    let pt = null, kind = null;
+    if (a?.kind) { const e = els.find((x) => x.kind === a.kind); kind = a.kind; pt = e ? posOf(e) : { x: 50, y: Y.ground + 6 }; }
+    else if (a?.verb === "set" && a.field === "time") { const e = els.find((x) => ["sun", "moon", "star", "planet"].includes(x.kind)); kind = e?.kind; pt = e ? posOf(e) : { x: 16, y: Y.sky }; }
+    else if (a?.verb === "set" && a.field === "weather") { const e = els.find((x) => x.kind === "cloud"); kind = e?.kind; pt = e ? posOf(e) : { x: 50, y: Y.sky - 4 }; }
+    else if (a?.verb === "set" && a.field === "ground") pt = { x: 34, y: Y.ground + 8 };
+    else if (a?.verb === "set" && a.field === "motion") pt = { x: 66, y: Y.high };
+    else if (a?.verb === "set" && a.field === "font") pt = { x: 50, y: s.text_place === "top" ? 3 : 90 };
+    else pt = { x: signSide === "right" ? 84 : 16, y: horizon + 10 + i * 6 };
+    pt = clear({ x: Math.max(6, Math.min(94, pt.x + (kind ? 7 : 0))), y: Math.max(3, Math.min(92, pt.y - (kind ? 6 : 0))) });
+    const top = s.console.side === "top" ? `max(${pt.y}%, calc(var(--bnw-panel, 30vh) + 30px))` : s.console.side === "bottom" ? `min(${pt.y}%, calc(100% - var(--bnw-panel, 30vh) - 30px))` : `${pt.y}%`;
+    return `<div role="button" tabindex="0" class="lever${kind ? " on-thing" : ""}" data-action="${esc(b.action)}" style="left:${pt.x}%;top:${top};--dz:0.5" title="a lever on this world: ${esc(b.action)}"><i class="pin"></i><span class="tag">${esc(b.label)}</span></div>`;
+  }).join("");
+  return `<div class="levers">${html}</div>`;
+}
+
 // The doors as signposts in the scene: a post at the horizon and a board that
 // points the way, right, left, then straight on. Pressing one wishes it.
 function signposts(s, horizon) {
@@ -447,7 +476,8 @@ function signposts(s, horizon) {
   const side = s.text_place === "right" || s.console.side === "right" ? "left" : "right";
   const x = side === "right" ? 84 : 16;
   // not a <button>: the harness strips those from a dreamed page, as it should
-  return `<div class="signs"><div role="button" tabindex="0" class="sign main ${side}" data-door="0" data-wish="${esc(s.next[0])}" style="left:${x}%;top:${horizon - 1}%;--dz:0.55" title="the way on: press it"><i class="post"></i><span class="board">${esc(s.next[0])}</span><em class="eta"></em></div></div>`;
+  const top = s.console.side === "top" ? `max(${horizon - 1}%, calc(var(--bnw-panel, 30vh) + 90px))` : s.console.side === "bottom" ? `min(${horizon - 1}%, calc(100% - var(--bnw-panel, 30vh) - 20px))` : `${horizon - 1}%`;
+  return `<div class="signs"><div role="button" tabindex="0" class="sign main ${side}" data-door="0" data-wish="${esc(s.next[0])}" style="left:${x}%;top:${top};--dz:0.55" title="the way on: press it"><i class="post"></i><span class="board">${esc(s.next[0])}</span><em class="eta"></em></div></div>`;
 }
 
 // A string as spans, each word at the model's certainty when it wrote it.
@@ -512,13 +542,20 @@ body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-f
 .ground { position: absolute; left: 0; right: 0; top: ${horizon}%; bottom: 0; ${groundCss(s)} }
 .haze { position: absolute; left: 0; right: 0; top: ${horizon - 14}%; height: 28%; background: linear-gradient(180deg, transparent, ${rgba(s.sky[s.sky.length - 1], 0.7)} 50%, transparent); pointer-events: none; }
 .el { position: absolute; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); overflow: visible; cursor: pointer; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); opacity: calc(1 - var(--haze, 0) * 0.45); }
-.scene.micro .el, .scene.micro .sign { animation-name: settle, drift; animation-duration: 0.55s, calc(18s / var(--speed)); }
+.scene.micro .el, .scene.micro .sign, .scene.micro .lever { animation-name: settle, drift; animation-duration: 0.55s, calc(18s / var(--speed)); }
 .scene.micro::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, ${rgba(s.accent, 0.35)}, transparent 70%); animation: pulse 0.7s ease-out forwards; pointer-events: none; z-index: 1; }
 @keyframes pulse { from { opacity: 1; } to { opacity: 0; } }
 @keyframes settle { from { opacity: 0; scale: 0.6; } to { opacity: 1; scale: 1; } }
 .el.mirror { transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), -50%) scaleY(-1); opacity: 0.22; filter: blur(1.2px); pointer-events: none; mask-image: linear-gradient(to top, #000 20%, transparent 95%); -webkit-mask-image: linear-gradient(to top, #000 20%, transparent 95%); animation: shimmer calc(4s / var(--speed)) ease-in-out infinite alternate; }
 .bloom { position: absolute; aspect-ratio: 1; border-radius: 50%; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); background: radial-gradient(circle, color-mix(in srgb, var(--c) 55%, transparent) 0%, color-mix(in srgb, var(--c) 18%, transparent) 35%, transparent 65%); opacity: ${isDark ? 0.5 : 0.18}; mix-blend-mode: ${isDark ? "screen" : "multiply"}; pointer-events: none; animation: flicker calc(3s / var(--speed)) ease-in-out infinite alternate; animation-delay: var(--d); }
 .scene::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,0.22) 100%); pointer-events: none; }
+.levers { position: absolute; inset: 0; pointer-events: none; }
+.lever { position: absolute; transform: translate(-50%, -50%) translate(calc(var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(var(--py, 0) * var(--dz, 0.5) * -1.2vh)); pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 6px; z-index: 2; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
+.lever .pin { width: 8px; height: 8px; border-radius: 50%; background: ${conAccent}; box-shadow: 0 0 0 3px ${rgba(conAccent, 0.25)}, 0 0 12px ${rgba(conAccent, 0.6)}; flex: none; }
+.lever .tag { font-family: ${FONT[s.font]}; font-style: italic; font-size: clamp(12px, 1.7vmin, 16px); line-height: 1.15; padding: 5px 11px; color: ${conFg}; background: ${conBg}; border: 1px solid ${rgba(conAccent, 0.55)}; border-radius: ${s.console.shape === "pill" ? "999px" : s.console.shape === "sharp" ? "0" : "8px"}; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); white-space: nowrap; max-width: 20ch; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+.lever.on-thing .tag::before { content: ""; }
+.lever:hover .tag, .lever.pressed .tag { background: ${conAccent}; color: ${lum(conAccent) > 0.55 ? "#1b1620" : "#f6efe4"}; }
+.lever.pressed .pin { transform: scale(1.6); }
 .signs { position: absolute; inset: 0; pointer-events: none; }
 .sign { position: absolute; transform: translate(-50%, -100%) translate(calc(var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(var(--py, 0) * var(--dz, 0.5) * -1.2vh)); background: none; border: 0; padding: 0; cursor: pointer; pointer-events: auto; font: inherit; color: ${s.ink}; display: flex; flex-direction: column; align-items: center; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); z-index: 2; }
 .sign.on { top: min(${horizon + 7}%, calc(100% - var(--bnw-panel, 30vh) - 70px)); }
@@ -535,7 +572,7 @@ body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-f
 .sign.main.right .board { padding-right: 24px; } .sign.main.left .board { padding-left: 24px; }
 .sign.main .post { height: clamp(34px, 8vmin, 70px); width: 4px; }
 @keyframes breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-@media (max-width: 720px) { .sign .board { max-width: 13ch; font-size: 11px; } .sign.main .board { max-width: 16ch; font-size: 13px; } .sign.on { display: none; } }
+@media (max-width: 720px) { .sign .board { max-width: 13ch; font-size: 11px; } .sign.main .board { max-width: 16ch; font-size: 13px; } .sign.on { display: none; } .lever .tag { font-size: 12px; max-width: 15ch; padding: 4px 9px; } }
 @keyframes shimmer { from { transform: translate(-50%, -50%) scaleY(-1) skewX(0.6deg); } to { transform: translate(-50%, -50%) scaleY(-1) skewX(-0.6deg); } }
 .el:hover { filter: drop-shadow(0 0 10px var(--c)); animation: nudge 0.5s ease-in-out; }
 .el:active { transform: translate(-50%, -50%) scale(1.12); }
@@ -591,7 +628,7 @@ html.low-power * { animation: none !important; filter: none !important; backdrop
 ${weather(s.weather, s)}
 ${elements}
 <div class="words ${s.text_place}"><h1>${certainWords(s.title, certainty?.title)}</h1>${s.lines.map((l, i) => `<p>${certainWords(l, certainty?.lines?.[i])}</p>`).join("")}</div>
-${signposts(s, horizon)}</div>`;
+${levers(s, horizon)}${signposts(s, horizon)}</div>`;
   return `<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><title>${esc(s.title)}</title><style>${css}</style></head><body>${body}</body></html>`;
 }
 

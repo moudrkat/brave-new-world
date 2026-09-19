@@ -4,8 +4,8 @@
 
 > ***Dedicated to everyone brave enough to leave the old world, whatever that means for them now.***
 
-I had been reading the Shoggoth debates and listening to the world-model
-talks, and at some point I could not resist.
+I had been reading the Shoggoth debates, and at some point I could not
+resist.
 
 So: in your browser lives a small model, and it creates the world on demand.
 Not a picture of it. The whole page, and the whole UI. You say "a quiet island

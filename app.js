@@ -128,7 +128,7 @@ function wake() {
 
 let applied = "";
 let designOf = null;
-const designFor = (spec, certainty) => (spec ? { ...spec.console, next: spec.next, doorP: certainty?.doors || null } : null);
+const designFor = (spec, certainty) => (spec ? { ...spec.console, next: spec.next, doorP: certainty?.doors || null, inWorld: true } : null);
 // One world dissolves into the next. The browser's view transition crossfades
 // the page and moves the console from wherever it was to wherever the model
 // put it now; a browser without the API just swaps.
@@ -612,9 +612,11 @@ async function walkInto(index, kind, el) {
   const messages = cur.messages || [{ role: "system", content: systemFor("spec") }, { role: "user", content: userMessage(cur.wish, "spec") }];
   dream(cur.wish.replace(/ · .*$/, ""), { messages, raw: cur.raw, ghost }).catch((err) => { console.error(err); con.setStatus("the fork broke: " + (err?.message || err), true); state.dreaming = false; con.setDreaming(false); });
 }
-document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.classList?.contains("sign")) { e.preventDefault(); e.target.click(); } });
+document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && (e.target.classList?.contains("sign") || e.target.classList?.contains("lever"))) { e.preventDefault(); e.target.click(); } });
 document.addEventListener("click", (e) => {
   if (e.composedPath().includes(con)) return;
+  const lever = e.target.closest?.(".lever");
+  if (lever) { lever.classList.add("pressed"); setTimeout(() => lever.classList.remove("pressed"), 700); return act(lever.dataset.action); }
   const sign = e.target.closest?.(".sign");
   if (sign) { if (state.dreaming && !replayCtl) return; sign.classList.add("swing"); setTimeout(() => sign.classList.remove("swing"), 800); con.wish = sign.dataset.wish; return con.submit(); }
   const scene = document.querySelector(".scene");
