@@ -149,11 +149,4 @@ grammar, and none draw its uncertainty into the picture.
 - `eval.html` the models, the wishes, one table; results in `evals/`, findings in `docs/evals.md`
 - `tools/` drive, film, stills, serve, deploy
 
-Prior art, briefly: Google's Generative UI, Anthropic's Imagine with Claude
-and OpenUI's OUI-1 have a large model write the interface on a server;
-json-render and A2UI are the same catalog-and-spec idea for dashboards; Loom
-is the ancestor of the ghosts. None put the model in the tab, none let it
-design its own panel from a grammar, none draw its uncertainty into the
-picture.
-
 > ***Dedicated to everyone brave enough to leave the old world, whatever that means for them now.***
