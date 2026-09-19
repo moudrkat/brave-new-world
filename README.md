@@ -47,6 +47,13 @@ verbatim, then the road not taken. In the forked world, what it chose the
 first time is the ghost. The scene shifts a little under the pointer or the
 phone's tilt, far things less than near ones.
 
+The doors are the next probable world, literally. Each carries the model's
+certainty of it, drawn as its weight, and the one it believed in most is
+dreamt ahead on the idle GPU while you look at this one. Step through it and
+the world is already there; take any other road and the head start is thrown
+away. The world after this one exists before you choose it, at the
+probability the model gave it.
+
 Every world lives in the address bar. The hash holds the spec, the model's
 text, a byte of certainty per token and the ghosts, so a link opens the exact
 dream on any browser with nothing downloaded, levers included. The `link`
