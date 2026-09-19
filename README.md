@@ -205,15 +205,56 @@ their composed action on the follow-up set).
 - `eval.html`: the models, the wishes, one table. Results in `evals/`.
 - `tools/`: `drive.mjs` runs the app or the eval from a shell through Chrome;
   `film.mjs` records the real page for a post; `serve.py` serves without caching.
-- A hidden door: `?mind=http://host:8010/v1` makes the mind a server instead of
-  the tab, any OpenAI-compatible endpoint. A schema-aware one (vLLM,
-  llama.cpp) gets the world's schema as a constraint; one that only talks
-  (brainscope, with `?guided=0`) gets it in the prompt and the harness keeps
-  the rest. Then the world is here and the residual stream is over there.
-  brainscope needs its `--cors` flag and streaming with logprobs, which it
-  grew for this (unreleased at the time of writing); start it with
-  `brainscope --model <id> --cors --host 127.0.0.1` and open
-  `?mind=http://127.0.0.1:8010/v1&guided=0`.
+- A hidden door to a second mind: see below.
+
+## Two minds, one page
+
+The page does not care where the mind is. By default it is in the tab. With
+`?mind=http://host:8010/v1` it is any OpenAI-compatible server that streams,
+and the page becomes a front for a model that would never fit in a browser.
+
+```mermaid
+flowchart LR
+  W(["a wish"]) --> P["the page<br/>prompt · harness · painter · panel · ghosts"]
+  P -->|"grammar, temperature 0.9,<br/>five alternatives per token"| T["<b>the tab</b><br/>WebLLM on WebGPU<br/>Qwen2.5-Coder-0.5B, 300 MB<br/>nothing leaves the device"]
+  P -.->|"?mind=…<br/>JSON schema or schema-in-prompt,<br/>logprobs: true"| S["<b>a server</b><br/>vLLM · llama.cpp · brainscope<br/>any size that fits the GPU"]
+  T -->|"tokens + probabilities"| P
+  S -.->|"tokens + probabilities"| P
+  S -.-> B["<b>brainscope's own page</b><br/>logit lens · attention · steering<br/>for the same generation"]
+  P --> V(["the world, its levers, its doors,<br/>the certainty of every word"])
+  classDef page fill:#16122a,stroke:#e0a458,color:#efe6d6
+  classDef mind fill:#07060b,stroke:#9b6bff,color:#efe6d6
+  class P,V page
+  class T,S,B mind
+```
+
+Why open it:
+
+- **To see what size buys.** The whole piece is built around what a 0.5B can
+  and cannot do: it copies the example's panel, it names a change instead of
+  making it, it goes home when given nothing. Point the same page, the same
+  prompt and the same scorer at a 7B or a 30B on your own GPU and every one
+  of those numbers gets a second row. The eval already runs against whatever
+  is at `?mind=`.
+- **To look deeper than logits.** The tab hands out probabilities and nothing
+  else; brainscope hands out the residual stream. With brainscope as the
+  mind, the world materializes here while its logit lens, attention and
+  per-layer readouts play over there, for the very tokens you are watching
+  land. Steering directions apply too: a persona vector on the model that
+  dreams the world is a world with a persona.
+- **To keep the interface honest.** The panel, the ghosts and the doors
+  remain the page's; only the mind moves. If a bigger mind makes better
+  levers, it shows up in the levers, not in a prompt trick.
+
+What it needs: a schema-aware server (vLLM, llama.cpp) gets the world's
+schema as a decoding constraint; brainscope, which has no constrained
+decoding yet, gets the schema in the prompt (`&guided=0`) and the harness
+keeps the rest. brainscope needs its `--cors` flag and streaming with
+logprobs, which it grew for this and which is unreleased at the time of
+writing: `brainscope --model <id> --cors --host 127.0.0.1`, then open
+`?mind=http://127.0.0.1:8010/v1&guided=0`. `?mindmodel=` picks a model when
+the server serves several. Nothing on the page changes; the wake button says
+where the wishes go.
 
 Prior art, for the curious: Google's Generative UI, Anthropic's Imagine with
 Claude and OpenUI's OUI-1 all have a large model write the interface on a
