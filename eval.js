@@ -150,7 +150,7 @@ async function run() {
 
 async function dream(modelId, wish, maxTokens, seed, temperature, strategy, extraMessages = [], forceTemp = false) {
   const prior = SET === "followups" && strategy === "spec" ? [{ role: "user", content: PRIOR.wish }, { role: "assistant", content: JSON.stringify(PRIOR.spec) }] : [];
-  const messages = [{ role: "system", content: systemFor(strategy, { example: EXAMPLE, wish, salt: forceTemp ? 1 : 0 }) }, ...prior, { role: "user", content: userMessage(wish, strategy, { hints: PARAMS.get("hints") === "1" }) }, ...extraMessages];
+  const messages = [{ role: "system", content: systemFor(strategy, { example: EXAMPLE, wish, salt: forceTemp ? 1 : 0 }) }, ...prior, { role: "user", content: userMessage(wish, strategy, { hints: PARAMS.get("hints") !== "0" }) // what ships: the wish carries its plain cues; &hints=0 measures the bare wish }, ...extraMessages];
   const extra = { seed, logprobs: false, top_logprobs: undefined };
   if (strategy === "html") extra.max_tokens = maxTokens;
   if (strategy === "html" || PARAMS.has("temp") || forceTemp) extra.temperature = temperature;
