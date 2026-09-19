@@ -83,13 +83,27 @@ in the panel copies it, or hands it to the phone's share sheet.
 
 ## The insides
 
-While it dreams, every token glows with the probability the model gave it, and
-hovering (or tapping) one shows the words it almost said. Where the model
-hesitated over *what* to put in the scene, the runner-up is drawn too, faintly,
-at the probability it almost had. Those are ghosts of the world you nearly got.
-The words on the page are drawn at the certainty they were written with. The
-creature drifting about is the model's state: it writhes while thinking and
-opens an eye at every hesitation.
+While it dreams, every token lands large across the page, glowing with the
+probability the model gave it; hovering (or tapping) one shows the words it
+almost said. Where the model hesitated over *what* to put in the scene, the
+runner-up is drawn too, faintly, at the probability it almost had. Those are
+ghosts of the world you nearly got, and you can walk into one. The words on
+the page are drawn at the certainty they were written with.
+
+The creature drifting about is the model's state. It writhes while thinking,
+opens an eye at every hesitation, and says what it is thinking about, read
+off the text so far: finding a title, mixing the sky, naming the third thing,
+wording a lever, opening the doors. Tap it and its head opens: how many
+tokens the grammar decided and how many were its own choices, how sure it was
+on those, where it doubted most, part by part, the places it nearly said
+something else and what, and what the mind is made of (24 layers, 14 heads,
+896 wide, a vocabulary of 151,936, 4-bit weights).
+
+What it says about itself is all of that: the probability of every token it
+wrote and of the words it did not. Its attention and activations stay inside
+the GPU; WebLLM does not hand them out. Showing them would take a second copy
+of the model through a custom ONNX export, and until then this page shows
+less rather than inventing the rest.
 
 ## Runs where
 

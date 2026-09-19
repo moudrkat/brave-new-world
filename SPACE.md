@@ -26,9 +26,11 @@ the faint thing the model almost placed, to walk into the road not taken; the
 address bar holds the exact world, so a link opens it anywhere with nothing
 downloaded.
 
-While it dreams you watch its insides. Every token glows with the probability
-the model gave it, tapping one shows the words it almost said, and the things
-it almost placed are drawn as ghosts at the probability they almost had.
+While it dreams you watch its insides. Every token lands across the page
+glowing with the probability the model gave it, tapping one shows the words
+it almost said, and the things it almost placed are drawn as ghosts at the
+probability they almost had. The creature says what it is thinking about;
+tap it and its head opens on where it doubted and what it nearly said.
 
 Three worlds it already dreamt can be stepped into without downloading
 anything, on any browser, on a phone. Their levers work; their doors wake the
