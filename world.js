@@ -700,5 +700,9 @@ export function certaintyFrom(spec, raw, tokens) {
   const title = probsOf(spec.title, 0);
   let from = raw.indexOf('"lines":');
   const lines = spec.lines.map((l) => { const p = probsOf(l, Math.max(0, from)); return p; });
-  return { title, lines };
+  // the doors: one number each, the mean certainty of the door's characters,
+  // which is how sure the model was of where you would want to go next
+  const nextAt = raw.indexOf('"next":');
+  const doors = (spec.next || []).map((d) => { const p = probsOf(d, Math.max(0, nextAt)); return p ? p.reduce((a, b) => a + b, 0) / p.length : null; });
+  return { title, lines, doors };
 }

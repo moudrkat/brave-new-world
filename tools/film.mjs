@@ -138,10 +138,15 @@ async function film() {
     return true;
   };
   const takeDoor = async () => {
-    const door = await ev(`${CON}.shadowRoot.querySelector(".door")?.textContent || ""`);
-    if (!door) return false;
-    beat("door", { door });
-    await ev(`${CON}.shadowRoot.querySelector(".door").click()`);
+    if (!(await ev(`!!${CON}.shadowRoot.querySelector(".door")`))) return false;
+    // the door it was surest of is being dreamt ahead: wait for it, so the film shows a world that was there before it was chosen
+    beat("ahead");
+    for (let i = 0; i < 120; i++) { if (await ev(`!!${CON}.shadowRoot.querySelector(".door.ready")`)) break; await sleep(400); }
+    const ready = await ev(`!!${CON}.shadowRoot.querySelector(".door.ready")`);
+    const door = await ev(`(${CON}.shadowRoot.querySelector(".door.ready") || ${CON}.shadowRoot.querySelector(".door")).textContent`);
+    beat("door", { door, ready });
+    await sleep(900);
+    await ev(`(${CON}.shadowRoot.querySelector(".door.ready") || ${CON}.shadowRoot.querySelector(".door")).click()`);
     beat("dream", { wish: "door: " + door });
     await waitDream();
     await describe();
@@ -184,6 +189,7 @@ function compose() {
   for (let i = 0; i < b.length; i++) {
     if (b[i].kind === "wake") fast.push([b[i].t + 0.6, b[i + 1].t - 0.3, RATE_WAKE]);
     if (b[i].kind === "dream") fast.push([b[i].t + 1.5, b[i + 1].t - 1.2, RATE_DREAM]);
+    if (b[i].kind === "ahead") fast.push([b[i].t + 1.0, b[i + 1].t - 0.6, RATE_DREAM]);
   }
   const rateAt = (t) => { for (const [a, z, r] of fast) if (t >= a && t < z) return r; return 1; };
   let list = "ffconcat version 1.0\n", total = 0;

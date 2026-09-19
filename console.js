@@ -121,7 +121,14 @@ const CSS = `
 .doors:empty { display: none; }
 .doors .lead { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--dim); text-transform: lowercase; }
 .door { background: transparent; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); color: var(--fg); font-family: var(--font); font-style: italic; font-size: 15.5px; padding: 3px 0; cursor: pointer; min-height: 30px; }
+.door { --p: 0.7; opacity: calc(0.55 + 0.45 * var(--p)); font-weight: 300; }
+.door[style*="--p: 0.9"], .door[style*="--p: 1"] { font-weight: 400; }
 .door::before { content: "→ "; color: var(--accent); font-style: normal; }
+.door.ahead::before { content: "… "; animation: breathe 1.6s ease-in-out infinite; }
+.door.ready { opacity: 1; border-color: var(--accent); }
+.door.ready::before { content: "→ "; text-shadow: 0 0 10px var(--accent); }
+.door.ready::after { content: " already dreamt"; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; color: var(--dim); font-style: normal; }
+@keyframes breathe { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 .door:hover { color: var(--accent); border-color: var(--accent); }
 :host([data-side="right"]) .doors { justify-content: flex-end; }
 :host([data-side="left"]) .doors, :host([data-side="right"]) .doors { flex-direction: column; align-items: flex-start; gap: 4px; }
@@ -328,13 +335,20 @@ export class BnwConsole extends HTMLElement {
     doors.innerHTML = "";
     if (d?.next?.length) {
       const lead = document.createElement("span"); lead.className = "lead"; lead.textContent = "doors"; doors.appendChild(lead);
-      for (const w of d.next) {
+      d.next.forEach((w, i) => {
         const el = document.createElement("button");
-        el.type = "button"; el.className = "door"; el.textContent = w; el.title = "a world it thinks you might want next: wish it";
+        const p = d.doorP?.[i];
+        el.type = "button"; el.className = "door"; el.textContent = w; el.dataset.wish = w;
+        // the door's weight is the model's certainty of it: the one it believed in most is boldest
+        if (p != null) { el.style.setProperty("--p", p.toFixed(2)); el.title = `it was ${Math.round(p * 100)}% sure you would want this next`; } else el.title = "a world it thinks you might want next: wish it";
         el.addEventListener("click", () => { if (this.dreaming) return; this.wish = w; this.submit(); });
         doors.appendChild(el);
-      }
+      });
     }
+  }
+  // the door being dreamt ahead, and the one that is ready
+  markDoor(wish, stateName) {
+    for (const el of this.shadowRoot.querySelectorAll(".door")) { el.classList.toggle("ahead", el.dataset.wish === wish && stateName === "ahead"); el.classList.toggle("ready", el.dataset.wish === wish && stateName === "ready"); }
   }
 
   /* ---- what app.js calls ---- */

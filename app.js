@@ -1,4 +1,4 @@
-import { MODELS, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec } from "./mind.js";
+import { MODELS, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec, detemper } from "./mind.js";
 import { DEMOS } from "./demos.js";
 import "./console.js";
 
@@ -79,6 +79,7 @@ function wake() {
       con.setAwake(true);
       con.setStatus("awake · " + modelId.replace(/-MLC$/, "") + " · say what world you want, or just a word");
       con.focus();
+      scheduleAhead();
       return state.engine;
     } catch (err) {
       con.setAwake(false, "could not wake · " + (err?.message || err));
@@ -97,7 +98,7 @@ function wake() {
 
 let applied = "";
 let designOf = null;
-const designFor = (spec) => (spec ? { ...spec.console, next: spec.next } : null);
+const designFor = (spec, certainty) => (spec ? { ...spec.console, next: spec.next, doorP: certainty?.doors || null } : null);
 // One world dissolves into the next. The browser's view transition crossfades
 // the page and moves the console from wherever it was to wherever the model
 // put it now; a browser without the API just swaps.
@@ -193,10 +194,10 @@ function messagesFor(wish, strategy) {
   return msgs;
 }
 
-async function generate(engine, messages, wish, strategy, grammar = null) {
+async function generate(engine, messages, wish, strategy, grammar = null, quiet = false) {
   const request = requestFor(state.modelId || MODEL, messages, {}, strategy);
   if (grammar) request.response_format = { type: "grammar", grammar };
-  con.temperature = request.temperature;
+  if (!quiet) con.temperature = request.temperature;
   let raw = "", n = 0, finish = null, lastPaint = 0;
   const tokens = []; // every token with its offsets and de-tempered alternatives, for the ghosts
   const t0 = performance.now();
@@ -206,22 +207,69 @@ async function generate(engine, messages, wish, strategy, grammar = null) {
     if (choice?.delta?.content) raw += choice.delta.content;
     if (choice?.finish_reason) finish = choice.finish_reason;
     const lps = choice?.logprobs?.content;
-    if (lps) for (const lp of lps) { const d = con.addToken(lp); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; }
+    if (lps) for (const lp of lps) { const d = quiet ? detemper(lp, request.temperature) : con.addToken(lp); tokens.push({ start: raw.length - lp.token.length, end: raw.length, token: lp.token, p: d.p, alts: d.alts, at: performance.now() - t0 }); n++; }
     const now = performance.now();
-    if (now - lastPaint > 800) {
+    if (!quiet && now - lastPaint > 800) {
       lastPaint = now;
       con.updateStats(t0, n);
       if (strategy === "html" && /<body/i.test(raw)) applyWorld(extractHtml(raw, wish), { partial: true });
     }
   }
-  con.updateStats(t0, n);
+  if (!quiet) con.updateStats(t0, n);
   return { raw, finish, n, tokens, seconds: (performance.now() - t0) / 1000 };
 }
+
+/* ------------------------------------------------------------------ */
+/* the next probable world: dreamt ahead while you look at this one    */
+/* ------------------------------------------------------------------ */
+
+// The door the model was surest of is dreamt quietly on the idle GPU. Take
+// it and the world is already there; take any other road and the head start
+// is thrown away. The world after this one exists before you choose it, at
+// the probability the model gave it.
+let ahead = null; // { wish, base, promise, done, result, cancelled }
+function dreamAhead() {
+  const cur = state.worlds[state.current];
+  if (!state.engine || state.dreaming || STRATEGY !== "spec" || !cur?.spec?.next?.length || cur.zero) return;
+  const ps = cur.certainty?.doors || [];
+  let best = 0;
+  for (let i = 1; i < cur.spec.next.length; i++) if ((ps[i] ?? 0) > (ps[best] ?? 0)) best = i;
+  const wish = cur.spec.next[best];
+  if (ahead && ahead.wish === wish && ahead.base === state.current && !ahead.cancelled) return;
+  cancelAhead();
+  const messages = messagesFor(wish, STRATEGY);
+  const a = { wish, base: state.current, done: false, result: null, cancelled: false, p: ps[best] };
+  ahead = a;
+  con.markDoor(wish, "ahead");
+  a.promise = generate(state.engine, messages, wish, STRATEGY, null, true).then((out) => {
+    if (a.cancelled) return;
+    a.result = { out, report: dreamToPage(out.raw, wish, out.finish, STRATEGY, out.tokens), messages };
+    a.done = true;
+    if (ahead === a && state.current === a.base) { con.markDoor(wish, "ready"); if (!state.dreaming) con.setStatus(`the door it thought you would take is already dreamt · "${wish}"` + (a.p != null ? ` · it was ${Math.round(a.p * 100)}% sure` : "")); }
+  }).catch(() => { a.cancelled = true; }).finally(() => { if (ahead === a && !a.done) ahead = null; });
+}
+function cancelAhead() {
+  if (!ahead) return Promise.resolve();
+  const a = ahead;
+  ahead = null;
+  con.markDoor(null, null);
+  if (a.done) return Promise.resolve();
+  a.cancelled = true;
+  state.engine?.interruptGenerate();
+  return a.promise.catch(() => {});
+}
+const aheadFor = (wish) => (ahead && ahead.done && !ahead.cancelled && ahead.wish === wish && ahead.base === state.current ? ahead : null);
+let aheadTimer = null;
+const scheduleAhead = () => { clearTimeout(aheadTimer); aheadTimer = setTimeout(dreamAhead, 1500); };
 
 // fork: { messages, raw, ghost } walks the model down its own road to the
 // ghost and makes it take the other turning; the rest is dreamt again.
 async function dream(wish, fork = null) {
   const engine = await wake();
+  clearTimeout(aheadTimer);
+  const ready = !fork && aheadFor(wish);
+  if (ready) return takeAhead(ready);
+  await cancelAhead();
   state.dreaming = true;
   con.setDreaming(true);
   con.setStatus(fork ? `walking into the ghost of a ${fork.ghost.kind} · the same road up to the fork, then the other way` : "dreaming · " + wish);
@@ -265,7 +313,7 @@ async function dream(wish, fork = null) {
     html = renderWorld(report.spec, { ghosts, certainty: report.certainty });
   }
   state.lastRaw = raw;
-  designOf = designFor(report?.spec);
+  designOf = designFor(report?.spec, report?.certainty);
   applyWorld(html);
   // the world is as restless as the model was unsure
   if (report?.spec) document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[report.spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
@@ -279,14 +327,38 @@ async function dream(wish, fork = null) {
   con.setStatus(`dreamt in ${((performance.now() - t0) / 1000).toFixed(1)} s` + (retries ? ` after ${retries} ${retries === 1 ? "retry" : "retries"}` : "") + (fork ? " · the road not taken" : " · the levers and the doors are its idea · tap a thing to walk to it"));
   remember(state.worlds[state.current]);
   con.focus();
+  scheduleAhead();
+}
+
+// the door you took was the one it expected: the world was dreamt while you looked
+function takeAhead(a) {
+  ahead = null;
+  const { out, report, messages } = a.result;
+  const t0 = performance.now();
+  con.setDreaming(true);
+  for (const t of out.tokens) con.paintToken(t.token, t.p, t.alts);
+  con.updateStats(t0 - out.seconds * 1000, out.tokens.length, "dreamt ahead");
+  con.setHarness((report.fatal ? "harness: unusable" : report.issues.length ? "harness: repaired " + report.issues.map((i) => i.kind).join(", ") : "harness: clean") + (report.ghosts?.length ? ` · ${report.ghosts.length} ghost${report.ghosts.length > 1 ? "s" : ""} · tap one to walk into it` : ""), report.fatal);
+  designOf = designFor(report.spec, report.certainty);
+  applyWorld(report.html);
+  if (report.spec) document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[report.spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
+  state.worlds.push({ wish: a.wish, html: report.html, issues: report.issues, retries: 0, attempts: [], strategy: STRATEGY, spec: report.spec, ghosts: report.ghosts || [], certainty: report.certainty || null,
+    raw: out.raw, tokens: out.tokens, messages: messages.slice(0, 3), seconds: out.seconds, model: state.modelId, date: new Date().toISOString(), ahead: true });
+  state.current = state.worlds.length - 1;
+  con.renderHistory(state.worlds, state.current, pick);
+  con.setDreaming(false);
+  con.setStatus(`you took the door it expected · this world was dreamt in ${out.seconds.toFixed(1)} s while you were looking at the last one`);
+  remember(state.worlds[state.current]);
+  scheduleAhead();
 }
 
 function pick(i) {
   state.current = i;
-  designOf = designFor(state.worlds[i].spec);
+  designOf = designFor(state.worlds[i].spec, state.worlds[i].certainty);
   applyWorld(state.worlds[i].html);
   con.renderHistory(state.worlds, state.current, pick);
   remember(state.worlds[i]);
+  cancelAhead(); scheduleAhead();
 }
 
 /* ------------------------------------------------------------------ */
@@ -299,7 +371,7 @@ async function replay(d, { label, status }) {
   const token = ++replaying;
   const spec = normalizeSpec(d.spec);
   const html = renderWorld(spec, { ghosts: d.ghosts || [], certainty: d.certainty || null });
-  designOf = designFor(spec);
+  designOf = designFor(spec, d.certainty);
   con.setDreaming(true);
   con.setStatus("remembering · " + d.wish);
   // the tokens it wrote that day, at their real certainties, faster than it wrote them
@@ -323,6 +395,7 @@ async function replay(d, { label, status }) {
   con.setDreaming(false);
   con.setStatus(status);
   remember(state.worlds[state.current]);
+  scheduleAhead();
 }
 const playDemo = (i) => DEMOS[i] && replay(DEMOS[i], {
   label: `a dream it had on ${(DEMOS[i].date || "").slice(0, 10)} · ${DEMOS[i].model ? DEMOS[i].model.replace(/-MLC$/, "") : "the same mind"} · ${(DEMOS[i].tokens || []).length} tokens in ${(DEMOS[i].seconds || 0).toFixed(1)} s`,
@@ -400,11 +473,12 @@ function act(action) {
   const html = renderWorld(spec, { ghosts: cur.ghosts || [], certainty: cur.certainty || null });
   state.worlds.push({ ...cur, spec, html, wish: cur.wish + " · " + action, zero: false, demo: false });
   state.current = state.worlds.length - 1;
-  designOf = designFor(spec);
+  designOf = designFor(spec, cur.certainty);
   applyWorld(html);
   con.renderHistory(state.worlds, state.current, pick);
   con.setStatus(action + " · the model named this lever and composed what it does; the engine pulled it");
   remember(state.worlds[state.current]);
+  cancelAhead(); scheduleAhead();
 }
 con.addEventListener("action", (e) => act(e.detail));
 
@@ -470,7 +544,7 @@ con.addEventListener("wish", (e) => {
     con.setDreaming(false);
   });
 });
-con.addEventListener("stop", () => { state.dreaming = false; replaying++; state.engine?.interruptGenerate(); document.querySelector(".scene")?.classList.remove("walking"); });
+con.addEventListener("stop", () => { state.dreaming = false; replaying++; cancelAhead(); state.engine?.interruptGenerate(); document.querySelector(".scene")?.classList.remove("walking"); });
 
 /* ------------------------------------------------------------------ */
 /* a dry run for browsers without a GPU                                */
