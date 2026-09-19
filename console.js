@@ -206,7 +206,8 @@ const CSS = `
 .wake small { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; color: var(--dim); margin-top: 4px; text-transform: lowercase; }
 .wake:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); }
 .wake:disabled { cursor: progress; animation: none; }
-.wake .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: color-mix(in srgb, var(--accent) 28%, transparent); transition: width 0.4s; pointer-events: none; }
+.wake .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 45%, transparent)); background-size: 200% 100%; transition: width 0.4s; pointer-events: none; animation: pour 1.6s linear infinite; box-shadow: 4px 0 18px color-mix(in srgb, var(--accent) 45%, transparent); }
+@keyframes pour { from { background-position: 0 0; } to { background-position: -200% 0; } }
 .wake > span { position: relative; }
 @keyframes beckon { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 50% { box-shadow: 0 0 0 8px transparent; } }
 .demos { margin-top: 12px; }
@@ -496,6 +497,12 @@ export class BnwConsole extends HTMLElement {
     this.$("wake").disabled = true;
     this.$("wakenote").textContent = text;
   }
+  // the creature eats its own weights while they come down: it grows with the
+  // fraction, opens an eye per shard, and the thought label says how far
+  swallow(frac, shard) {
+    this.sky.swallow?.(frac, shard);
+    this.thought = frac >= 1 ? "awake" : `swallowing its weights · ${Math.round(frac * 100)}%`;
+  }
   setDemos(list, onPick) {
     const chips = this.$("chips");
     chips.innerHTML = "";
@@ -708,6 +715,12 @@ function makeSky(c, host) {
   // The shoggoth: the model, as a creature. Its outline is a sum of waves that
   // every token disturbs; a hesitation opens an eye; while dreaming it writhes.
   const shog = { x: 0.16, y: 0.3, tx: 0.16, ty: 0.3, r: 34, t: 0, jolt: 0, eyes: [], mouth: 0, hue: "#9b6bff", ink: "#efe6d6" };
+  let fed = 0, fedShard = 0;
+  function swallow(frac, shard) {
+    fed = frac;
+    if (shard > fedShard) { fedShard = shard; shog.jolt = Math.min(1, shog.jolt + 0.35); if (shog.eyes.length < 9 && shard % 4 === 0) shog.eyes.push({ a: rnd(0, Math.PI * 2), d: rnd(0.25, 0.7), life: 1.6, size: rnd(2.5, 4.5), blink: rnd(0, 6) }); shog.mouth = 1; }
+    if (frac >= 1) { fed = 0; shog.jolt = 1; }
+  }
   function feed(p, nAlts) {
     shog.jolt = Math.min(1, shog.jolt + 0.15 + (1 - p) * 0.5);
     if (p < 0.5 && shog.eyes.length < 9) shog.eyes.push({ a: rnd(0, Math.PI * 2), d: rnd(0.25, 0.7), life: 1, size: rnd(2, 4) + (1 - p) * 4, blink: rnd(0, 6) });
@@ -739,7 +752,7 @@ function makeSky(c, host) {
     const ease = 1 - Math.pow(0.5, dt / (underPanel(shog.x, shog.y) ? 900 : 6000));
     shog.x += (shog.tx - shog.x) * ease; shog.y += (shog.ty - shog.y) * ease;
     const cx = shog.x * W, cy = shog.y * H;
-    const R = shog.r * (1 + shog.jolt * 0.5 + host.doubt * 0.8) * Math.min(1.4, Math.max(0.7, W / 1000));
+    const R = shog.r * (1 + shog.jolt * 0.5 + host.doubt * 0.8 + fed * 0.9) * Math.min(1.4, Math.max(0.7, W / 1000));
     const pts = lowPower ? 20 : 40;
     g.save();
     g.globalAlpha = host.worldActive ? 0.85 : 0.55;
@@ -786,7 +799,7 @@ function makeSky(c, host) {
     // a mouth that opens when it has just spoken
     if (shog.mouth > 0.05) { g.strokeStyle = shog.ink; g.lineWidth = 1.5; g.beginPath(); g.arc(cx, cy + R * 0.25, R * 0.3, 0.15 * Math.PI, 0.85 * Math.PI); g.globalAlpha = shog.mouth; g.stroke(); }
     // what it is thinking about, in words, under it
-    const label = host.dreaming ? host.thought : host.worldActive || host.anatomy.n ? "tap me" : "";
+    const label = host.dreaming || fed > 0 ? host.thought : host.worldActive || host.anatomy.n ? "tap me" : "";
     if (label) { g.globalAlpha = host.dreaming ? 0.9 : 0.45; g.fillStyle = shog.ink; g.font = "300 11px 'JetBrains Mono', ui-monospace, monospace"; g.textAlign = "center"; g.letterSpacing = "0.12em"; g.fillText(label, cx, cy + R * 1.55 + 12); }
     shog.px = cx; shog.py = cy; shog.pr = R;
     g.restore();
@@ -835,7 +848,7 @@ function makeSky(c, host) {
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-  return { spark, feed, shogAt: () => ({ x: shog.px || 0, y: shog.py || 0, r: shog.pr || 30 }) };
+  return { spark, feed, swallow, shogAt: () => ({ x: shog.px || 0, y: shog.py || 0, r: shog.pr || 30 }) };
 }
 
 customElements.define("bnw-console", BnwConsole);

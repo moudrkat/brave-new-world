@@ -89,9 +89,15 @@ function wake() {
       con.setWaking(`fetching ${size} once, into this browser's cache…`);
       con.setStatus("waking · the first time fetches its weights, later visits use the cache");
       const onProgress = (r) => {
-        const pct = Math.round((r.progress || 0) * 100);
-        con.setProgress(r.progress || 0);
-        con.setWaking(`${pct}% · ${(r.text || "").replace(/\[.*?\]/g, "").trim().slice(0, 70) || "fetching"}`);
+        const frac = r.progress || 0, pct = Math.round(frac * 100);
+        con.setProgress(frac);
+        // WebLLM says things like "Fetching param cache[24/61]: 118MB fetched. 39% completed, 12 secs elapsed."
+        const shard = (r.text || "").match(/\[(\d+)\/(\d+)\]/);
+        const mb = (r.text || "").match(/(\d+)MB/);
+        const fromCache = /from cache/i.test(r.text || "");
+        const line = frac >= 1 ? "swallowed whole · warming up" : shard ? `${fromCache ? "remembering" : "swallowing"} shard ${shard[1]} of ${shard[2]}${mb ? ` · ${mb[1]} MB down` : ""} · ${pct}%` : `${pct}% · ${(r.text || "").replace(/\[.*?\]/g, "").trim().slice(0, 60) || "reaching for its weights"}`;
+        con.setWaking(line);
+        con.swallow(frac, shard ? +shard[1] : 0);
       };
       const { CreateWebWorkerMLCEngine } = await import(WEBLLM);
       const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
