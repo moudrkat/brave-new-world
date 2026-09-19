@@ -398,6 +398,7 @@ async function replay(d, { label, status }) {
     await new Promise((r) => setTimeout(r, pace));
   }
   con.updateStats(t0, toks.length, "replayed", d.seconds || null);
+  setTimeout(() => con.openInside(false), 2500);
   applyWorld(html);
   document.documentElement.style.setProperty("--speed", (({ still: 0.001, slow: 1, restless: 2.4 })[spec.motion] * (1 + con.doubt * 2.5)).toFixed(2));
   con.setHarness(label + (d.ghosts?.length ? ` · ${d.ghosts.length} ghost${d.ghosts.length > 1 ? "s" : ""} · tap one to walk into it` : ""));

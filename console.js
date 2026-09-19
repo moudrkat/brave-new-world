@@ -159,7 +159,10 @@ const CSS = `
 :host([data-world]) .wake small { display: inline; margin: 0 0 0 10px; }
 :host([data-world]) .wakebox { margin-top: 10px; }
 :host([data-world]) .demos .lead, :host([data-world]) .chips .chip:not(.next) { display: none; }
-:host([data-world]) .demos { margin-top: 8px; }
+:host([data-world]) .demos { margin-top: 6px; }
+:host([data-world]) .wakebox { display: inline-block; margin-right: 8px; vertical-align: middle; }
+:host([data-world]) .demos { display: inline-block; vertical-align: middle; }
+:host([data-world]) .wake { display: inline-block; width: auto; }
 .chip.next { display: none; }
 :host([data-world]) .chip.next { display: inline-block; font-size: 13.5px; padding: 4px 12px; min-height: 0; }
 .wake {

@@ -397,7 +397,7 @@ function element(e, i, motion, ctx = {}) {
     const delay = ((i * 3 + k) * 0.7).toFixed(2);
     const big = ["mountain", "hill", "volcano", "skyline", "iceberg", "dune", "pyramid"].includes(e.kind);
     const hz = big ? haze * 0.5 : haze;
-    if (GLOW.has(e.kind)) out.push(`<i class="bloom" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${(sz * 2.6).toFixed(1)}vmin;--c:${e.color};--dz:${DEPTH[e.y]};--d:${delay}s"></i>`);
+    if (GLOW.has(e.kind)) out.push(`<i class="bloom" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${(sz * 2.0).toFixed(1)}vmin;--c:${e.color};--dz:${DEPTH[e.y]};--d:${delay}s"></i>`);
     out.push(`<svg class="el ${e.kind}${GLOW.has(e.kind) ? " glow" : ""}" data-kind="${e.kind}" data-index="${i}" viewBox="0 0 100 100" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${sz.toFixed(1)}vmin;--d:${delay}s;--c:${e.color};--dz:${DEPTH[e.y]};--haze:${hz}"><title>${e.kind}: walk to it</title>${SHAPES[e.kind](e.color)}</svg>`);
     // a reflection: the same thing upside down below the horizon, faint, only where the ground is water or ice
     if (ctx.mirror && e.y !== "low" && e.y !== "ground") { const my = ctx.horizon + (ctx.horizon - y) * 0.6; if (my < 100) out.push(`<svg class="el mirror ${e.kind}" viewBox="0 0 100 100" style="left:${x.toFixed(1)}%;top:${my.toFixed(1)}%;width:${sz.toFixed(1)}vmin;--d:${delay}s;--c:${e.color};--dz:${DEPTH[e.y]}" aria-hidden="true">${SHAPES[e.kind](e.color)}</svg>`); }
@@ -468,12 +468,14 @@ export function renderWorld(spec, { ghosts = [], certainty = null } = {}) {
   const side = s.console.side;
   const midY = side === "bottom" ? 34 : side === "top" ? 56 : 42;
   // the console tells the page how tall it is (--bnw-panel); the words keep clear of it
+  // the middle of whatever the panel leaves: below a top panel, above a bottom one
+  const midTop = side === "top" ? "calc(var(--bnw-panel, 30vh) + (100% - var(--bnw-panel, 30vh)) / 2)" : side === "bottom" ? "calc((100% - var(--bnw-panel, 30vh)) / 2)" : midY + "%";
   const textPos = {
     top: `top:${side === "top" ? "calc(var(--bnw-panel, 30vh) + 4vh)" : "7vh"};left:50%;transform:translateX(-50%);text-align:center;`,
-    center: `top:${midY}%;left:50%;transform:translate(-50%,-50%);text-align:center;`,
+    center: `top:${midTop};left:50%;transform:translate(-50%,-50%);text-align:center;`,
     bottom: `bottom:${side === "bottom" ? "calc(var(--bnw-panel, 36vh) + 5vh)" : "12vh"};left:50%;transform:translateX(-50%);text-align:center;`,
-    left: `top:${midY}%;left:${side === "left" ? 28 : 7}vw;transform:translateY(-50%);text-align:left;`,
-    right: `top:${midY}%;right:${side === "right" ? 28 : 7}vw;transform:translateY(-50%);text-align:right;`,
+    left: `top:${midTop};left:${side === "left" ? 28 : 7}vw;transform:translateY(-50%);text-align:left;`,
+    right: `top:${midTop};right:${side === "right" ? 28 : 7}vw;transform:translateY(-50%);text-align:right;`,
   }[s.text_place];
   const titleSize = s.title.length > 26 ? "clamp(22px, 4vmin, 48px)" : s.title.length > 16 ? "clamp(26px, 5vmin, 60px)" : "clamp(30px, 6vmin, 74px)";
   const tone = s.console.tone;
@@ -500,7 +502,7 @@ body { background: linear-gradient(180deg, ${skyStops}); color: ${s.ink}; font-f
 .haze { position: absolute; left: 0; right: 0; top: ${horizon - 14}%; height: 28%; background: linear-gradient(180deg, transparent, ${rgba(s.sky[s.sky.length - 1], 0.7)} 50%, transparent); pointer-events: none; }
 .el { position: absolute; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); overflow: visible; cursor: pointer; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); opacity: calc(1 - var(--haze, 0) * 0.45); }
 .el.mirror { transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), -50%) scaleY(-1); opacity: 0.22; filter: blur(1.2px); pointer-events: none; mask-image: linear-gradient(to top, #000 20%, transparent 95%); -webkit-mask-image: linear-gradient(to top, #000 20%, transparent 95%); animation: shimmer calc(4s / var(--speed)) ease-in-out infinite alternate; }
-.bloom { position: absolute; aspect-ratio: 1; border-radius: 50%; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); background: radial-gradient(circle, var(--c) 0%, color-mix(in srgb, var(--c) 35%, transparent) 30%, transparent 62%); opacity: 0.55; mix-blend-mode: screen; pointer-events: none; animation: flicker calc(3s / var(--speed)) ease-in-out infinite alternate; animation-delay: var(--d); }
+.bloom { position: absolute; aspect-ratio: 1; border-radius: 50%; transform: translate(calc(-50% + var(--px, 0) * var(--dz, 0.5) * -2.5vw), calc(-50% + var(--py, 0) * var(--dz, 0.5) * -1.2vh)); background: radial-gradient(circle, color-mix(in srgb, var(--c) 55%, transparent) 0%, color-mix(in srgb, var(--c) 18%, transparent) 35%, transparent 65%); opacity: ${isDark ? 0.5 : 0.18}; mix-blend-mode: ${isDark ? "screen" : "multiply"}; pointer-events: none; animation: flicker calc(3s / var(--speed)) ease-in-out infinite alternate; animation-delay: var(--d); }
 .scene::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,0.22) 100%); pointer-events: none; }
 @keyframes shimmer { from { transform: translate(-50%, -50%) scaleY(-1) skewX(0.6deg); } to { transform: translate(-50%, -50%) scaleY(-1) skewX(-0.6deg); } }
 .el:hover { filter: drop-shadow(0 0 10px var(--c)); }
@@ -540,6 +542,7 @@ p { margin: 0 0 8px; font-size: clamp(15px, 2.3vmin, 24px); line-height: 1.5; fo
 @keyframes fog { from { translate: -6vw 0; } to { translate: 6vw 0; } }
 @keyframes sea { from { background-position: 0 0, 0 0; } to { background-position: 0 14px, 0 0; } }
 @keyframes lava { from { filter: brightness(1); } to { filter: brightness(1.25); } }
+@media (max-width: 720px) { .words.center, .words.left, .words.right { top: ${side === "top" ? "calc(var(--bnw-panel, 30vh) + (100% - var(--bnw-panel, 30vh)) / 2)" : "calc((100% - var(--bnw-panel, 30vh)) / 2)"}; } .words.left { left: 16px; } .words.right { right: 16px; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
 html.low-power * { animation: none !important; filter: none !important; backdrop-filter: none !important; text-shadow: none !important; }
 `;
