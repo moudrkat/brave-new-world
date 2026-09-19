@@ -179,6 +179,9 @@ const CSS = `
 .act { background: transparent; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent); border-radius: 999px; color: var(--accent); font-family: var(--font); font-style: italic; font-size: 16px; padding: 6px 15px; cursor: pointer; min-height: 36px; }
 .act:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .act:active { transform: translateY(1px); }
+.act.pressed { background: var(--accent) !important; color: var(--bg) !important; border-color: var(--accent) !important; transition: background 0.15s, color 0.15s; }
+.status.fresh { color: var(--accent); }
+.status { transition: color 0.4s; }
 
 /* ---- waking, and the dreams it already had ---- */
 .wakebox { margin-top: 12px; }
@@ -455,7 +458,7 @@ export class BnwConsole extends HTMLElement {
     for (const b of d?.buttons || []) {
       const el = document.createElement("button");
       el.type = "button"; el.className = "act"; el.textContent = b.label; el.title = "a lever on this world: " + b.action;
-      el.addEventListener("click", () => this.dispatchEvent(new CustomEvent("action", { detail: b.action })));
+      el.addEventListener("click", () => { el.classList.add("pressed"); setTimeout(() => el.classList.remove("pressed"), 700); this.dispatchEvent(new CustomEvent("action", { detail: b.action })); });
       acts.appendChild(el);
     }
     const doors = this.$("doors");
@@ -527,7 +530,9 @@ export class BnwConsole extends HTMLElement {
   setStatus(text, warn = false, quiet = false) {
     if (!quiet) this.statusAt = performance.now(); // so a delayed hint does not talk over a fresh line
     if (this.dreaming) this.$("veil-note").textContent = text;
-    this.$("status").textContent = text;
+    const st = this.$("status");
+    if (!quiet && st.textContent !== text) { st.classList.add("fresh"); clearTimeout(this._fresh); this._fresh = setTimeout(() => st.classList.remove("fresh"), 1200); }
+    st.textContent = text;
     this.$("status").classList.toggle("warn", warn);
     document.title = "Brave New World · " + text;
   }

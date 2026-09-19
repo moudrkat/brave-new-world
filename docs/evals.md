@@ -75,3 +75,13 @@ still not language after the retry, sense 0.46, levers 0.66, total 0.92. The
 ambiguous and follow-up rows were measured with the three-door grammar and
 were not rerun; nothing in that change touches what they measure.
 
+## Do the levers lead somewhere
+
+`leverEffect()` in mind.js applies each lever to the world it was designed
+for and asks whether anything changed. On the shipped run, 94% of the
+engine levers do (96% on the vague and follow-up sets); the rest asked for
+what was already so, rain in the rain. In the app such a lever turns the
+same dial one notch further and says why, so no press is a dud. 29 of the
+75 levers on the shipped run ask the model instead of the engine ("again",
+"elsewhere"): those always lead somewhere, and cost a dream.
+

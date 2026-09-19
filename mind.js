@@ -259,6 +259,15 @@ const VALUE_WORDS = {
   serif: /serif|book|letter|print|old/i, mono: /mono|type|machine|code|terminal|typewriter/i, display: /display|grand|big|bold|title/i, hand: /hand|write|ink|scribble|note/i,
   more: /more|another|add|again|fill|crowd|multiply|grow|double/i, fewer: /less|fewer|remove|take|quiet|empty|thin|clear|one|alone/i, add: /add|bring|invite|summon|let|give|another/i, remove: /remove|take|away|banish|no more|without|gone|lose/i,
 };
+// Does each lever do something to its own world? (The app makes a no-op lever
+// go one step further anyway; this measures the model's design, not the net.)
+export function leverEffect(spec) {
+  if (!spec?.console?.buttons?.length) return null;
+  const engine = spec.console.buttons.filter((b) => { const a = parseAction(b.action); return a && !["undo", "again", "elsewhere", "inside"].includes(a.verb); });
+  if (!engine.length) return 1; // levers that ask the model always lead somewhere
+  return engine.filter((b) => JSON.stringify(applyAction(spec, b.action)) !== JSON.stringify(spec)).length / engine.length;
+}
+
 export function buttonSense(spec) {
   if (!spec?.console?.buttons?.length) return null;
   const ok = spec.console.buttons.filter((b) => {
