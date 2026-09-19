@@ -210,6 +210,10 @@ their composed action on the follow-up set).
   llama.cpp) gets the world's schema as a constraint; one that only talks
   (brainscope, with `?guided=0`) gets it in the prompt and the harness keeps
   the rest. Then the world is here and the residual stream is over there.
+  brainscope needs its `--cors` flag and streaming with logprobs, which it
+  grew for this (unreleased at the time of writing); start it with
+  `brainscope --model <id> --cors --host 127.0.0.1` and open
+  `?mind=http://127.0.0.1:8010/v1&guided=0`.
 
 Prior art, for the curious: Google's Generative UI, Anthropic's Imagine with
 Claude and OpenUI's OUI-1 all have a large model write the interface on a
