@@ -140,7 +140,15 @@ say what they do, whether the doors lead somewhere other than back. Three sets:
 Results for the shipped model are in `evals/2026-09-19-*.md`; the full JSON
 (specs, tokens, issues) sits next to them, gitignored for size.
 
-RESULTS_TABLE
+| mind | set | example | tok/s | broken | dead | sense | original | prose | levers | doors | edit | kept | total |
+|---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| Qwen2.5 Coder · 0.5B, shipped | wishes | full | 12 | 12% | 12% | 0.42 | 0.50 | 0.97 | 0.64 | 1.00 | · | · | 0.89 |
+| Qwen2.5 Coder · 0.5B | ambiguous | full | 13 | 25% | 19% | 0.00 | 0.33 | 0.98 | 0.75 | 0.92 | · | · | 0.86 |
+| Qwen2.5 Coder · 0.5B | followups | full | 15 | 0% | 0% | 0.78 | 0.92 | 1.00 | 0.83 | 0.99 | 0.33 | 0.86 | 0.88 |
+| Qwen2.5 Coder · 0.5B | wishes | prose | 14 | 12% | 9% | 0.45 | 0.41 | 0.98 | 0.19 | 0.99 | · | · | 0.87 |
+| Qwen2.5 Coder · 0.5B | wishes | bare | 15 | 69% | 62% | 0.41 | 0.38 | 0.86 | 0.10 | 0.98 | · | · | 0.88 |
+
+broken: first attempts the harness sent back (not language, or no spec); dead: still broken after the eval's one retry (the app retries twice). sense: the world matches what the wish plainly says; original: not the prompt example's colors, things or words; prose: readable strings; levers: label says what the composed action does (lower bound); doors: lead away from the wish and each other; edit/kept: follow-ups only, asked change made / share of the prior world preserved.
 
 One finding worth more than the table. Shown a worked example in the prompt,
 the model designs the world and plagiarizes the panel: on the final grammar,
@@ -160,6 +168,15 @@ made 14 different worlds, 25% needed a second attempt and 19% were still not
 language after it; and 5 of the 16 were the prompt example's own world
 wearing a new sky: "hi" got "Platform Nine, Vermilion", "somewhere warm" got
 the jazz bar under the sea. A small model with nothing to go on goes home.
+
+Edits are the other honest number. Asked for a change to the world on screen
+("make it night", "add a whale", "snow instead"), it keeps the world, 0.86 of
+it on average, and makes the asked change 4 times in 12. The other times it
+names the change instead of making it: the title becomes "Snow instead" and
+the weather stays clear, "Typewriter Letters" over the same serif. That is
+why the levers exist and why the engine, not the model, pulls them: the model
+decides what a lever is for, and that it does reliably (0.83 of labels match
+their composed action on the follow-up set).
 
 ## The rest
 
