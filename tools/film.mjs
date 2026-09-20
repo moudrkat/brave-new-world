@@ -42,7 +42,8 @@ const LAST = "the brave new world"; // the film ends on whatever the model makes
 // FILM_RATE=6 node tools/film.mjs --recompose out/brave-new-world re-cuts a take faster without re-recording
 // the world forms while the model writes it, so a dream is no longer a wait: it runs only a little faster than it happened
 const RATE_WAKE = 6, RATE_DREAM = +(process.env.FILM_RATE || 2.5), RATE_HOLD = +(process.env.FILM_HOLD || 1.3);
-const RATE_FIRST = +(process.env.FILM_FIRST || Math.min(RATE_DREAM, 3)); // the first typed world forming is the moment; it is hurried least // FILM_HOLD=1.6 tightens the pauses on a world too
+const RATE_FIRST = +(process.env.FILM_FIRST || Math.min(RATE_DREAM, 3)); // the first typed world forming is the moment; it is hurried least
+const RATE_TAPS = +(process.env.FILM_TAPS || 1), RATE_HEAD = +(process.env.FILM_HEAD || 1); // FILM_TAPS=1.5 tightens the pauses between taps; FILM_HEAD=2 shortens the look inside // FILM_HOLD=1.6 tightens the pauses on a world too
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const targets = async () => (await fetch(`http://localhost:${PORT}/json`)).json();
@@ -296,10 +297,13 @@ function compose() {
     if (b[i].kind === "dream") fast.push([b[i].t + 1.5, b[i + 1].t - 1.2, firstDream === i ? RATE_FIRST : RATE_DREAM]);
     if (b[i].kind === "ahead") fast.push([b[i].t + 1.0, b[i + 1].t - 0.6, RATE_DREAM]);
     if (b[i].kind === "world" && b[i + 1] && RATE_HOLD !== 1) fast.push([b[i].t + 1.4, b[i + 1].t - 0.2, RATE_HOLD]);
+    if (["lever", "surprise", "sky", "sprout", "font"].includes(b[i].kind) && b[i + 1] && RATE_TAPS !== 1) fast.push([b[i].t + 0.7, b[i + 1].t - 0.1, RATE_TAPS]);
+    if (b[i].kind === "head" && b[i + 1] && RATE_HEAD !== 1) fast.push([b[i].t + 1.5, b[i + 1].t - 0.3, RATE_HEAD]);
   }
   // FILM_DROP=walk,ghost cuts whole beats out: from the tap to the end of the world it led to
-  for (const kind of (process.env.FILM_DROP || "").split(",").filter(Boolean)) {
-    const i = b.findIndex((x) => x.kind === kind);
+  for (const spec of (process.env.FILM_DROP || "").split(",").filter(Boolean)) {
+    const [kind, nth] = spec.split("#"); let seen = 0;
+    const i = b.findIndex((x) => x.kind === kind && ++seen === +(nth || 1));
     if (i < 0) continue;
     let j = i + 1; while (j < b.length && !["type", "door", "ahead", "lever", "walk", "ghost", "head", "end"].includes(b[j].kind)) j++;
     fast.push([b[i].t - 0.2, b[j].t - 0.2, 0]);
