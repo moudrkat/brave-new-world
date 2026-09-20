@@ -1,5 +1,5 @@
-import { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom, surprise, sprout, turnWeather, turnFont } from "./world.js";
-export { SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom, surprise, sprout, turnWeather, turnFont };
+import { exampleFor, SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom, surprise, sprout, turnWeather, turnFont } from "./world.js";
+export { exampleFor, SYSTEM_SPEC, EXAMPLE_MODE, systemSpec, WORLD_SCHEMA, WORLD_GRAMMAR, normalizeSpec, renderWorld, fingerprint, variety, originality, sense, applyAction, parseAction, actionText, forkGrammar, ghostsFrom, cueHints, certaintyFrom, surprise, sprout, turnWeather, turnFont };
 
 // The user turn: the wish, and (for the tools path) what the words plainly say.
 export function userMessage(wish, strategy, { hints = true } = {}) {
@@ -116,7 +116,11 @@ export function parseSpec(raw) {
 }
 
 // From what the model wrote to a page, whichever way it was asked.
-export function dreamToPage(raw, wish, finish, strategy, tokens) {
+// Did it hand back the example's own world? With nothing to go on, a small
+// model copies the example's title word for word; the caller may ask again
+// with another example. Not fatal: the world is a world, just not this one.
+const sameTitle = (a, b) => a && b && String(a).toLowerCase().replace(/[^a-z]/g, "") === String(b).toLowerCase().replace(/[^a-z]/g, "");
+export function dreamToPage(raw, wish, finish, strategy, tokens, exampleTitle = null) {
   if (strategy === "spec") {
     const parsed = parseSpec(raw);
     if (!parsed.ok) {
@@ -132,7 +136,9 @@ export function dreamToPage(raw, wish, finish, strategy, tokens) {
     const ghosts = ghostsFrom(spec, raw, tokens);
     const certainty = certaintyFrom(spec, raw, tokens);
     const report = inspect(renderWorld(spec, { ghosts, certainty }), wish, finish);
-    return { html: report.html, issues: report.issues, fatal: report.fatal, spec, ghosts, certainty, counts: report.counts };
+    const copied = sameTitle(spec.title, exampleTitle);
+    if (copied) report.issues.push({ kind: "copied", detail: "the example's own title, word for word", fatal: false });
+    return { html: report.html, issues: report.issues, fatal: report.fatal, copied, spec, ghosts, certainty, counts: report.counts };
   }
   const report = inspect(raw, wish, finish);
   return { html: report.html, issues: report.issues, fatal: report.fatal, spec: null, counts: report.counts };

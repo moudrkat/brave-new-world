@@ -1,5 +1,5 @@
 import { CreateWebWorkerMLCEngine } from "https://esm.run/@mlc-ai/web-llm@0.2.85";
-import { MODELS, WISHES, SETS, PRIOR, FOLLOWUPS, STRATEGIES, systemFor, userMessage, requestFor, chatOptsFor, dreamToPage, retryMessage, score, measureFrame, escapeHtml, fingerprint, variety, originality, sense, proseScore, keptScore, buttonSense, doorSense, EXAMPLE_MODE } from "./mind.js";
+import { exampleFor, MODELS, WISHES, SETS, PRIOR, FOLLOWUPS, STRATEGIES, systemFor, userMessage, requestFor, chatOptsFor, dreamToPage, retryMessage, score, measureFrame, escapeHtml, fingerprint, variety, originality, sense, proseScore, keptScore, buttonSense, doorSense, EXAMPLE_MODE } from "./mind.js";
 
 const $ = (id) => document.getElementById(id);
 const PARAMS = new URLSearchParams(location.search);
@@ -100,12 +100,13 @@ async function run() {
       say(`${meta.label} · ${i + 1}/${n} · ${wish}`);
       const r = await dream(id, wish, maxTokens, seed + i, temperature, strategy);
       // the harness, exactly as the app runs it, but with one retry so the eval stays bounded
-      let report = dreamToPage(r.raw, wish, r.finish, strategy);
+      let report = dreamToPage(r.raw, wish, r.finish, strategy, undefined, strategy === "spec" ? exampleFor(wish, 0)[1].title : null);
+      r.copied = !!report.copied;
       r.issues = report.issues.map((x) => x.kind);
       r.fatal = report.fatal;
       r.retried = false;
-      if (report.fatal && !stop) {
-        say(`${meta.label} · ${i + 1}/${n} · broken (${r.issues.join(", ")}), asking again`);
+      if ((report.fatal || report.copied) && !stop) {
+        say(`${meta.label} · ${i + 1}/${n} · ${report.fatal ? "broken (" + r.issues.join(", ") + ")" : "the example's own world"}, asking again`);
         // a fresh start, as in the app: new shuffle, cooler, the broken attempt out of sight (spec); the html path keeps the old exchange
         const again = strategy === "spec"
           ? await dream(id, wish, maxTokens, seed + i + 1000, 0.7, strategy, [], true)
@@ -114,7 +115,8 @@ async function run() {
         r.retryRaw = again.raw;
         r.tokens += again.tokens;
         r.seconds += again.seconds;
-        report = dreamToPage(again.raw, wish, again.finish, strategy);
+        report = dreamToPage(again.raw, wish, again.finish, strategy, undefined, strategy === "spec" ? exampleFor(wish, 1)[1].title : null);
+        r.copiedAfterRetry = !!report.copied;
         r.fatalAfterRetry = report.fatal;
         r.issuesAfterRetry = report.issues.map((x) => x.kind);
       }

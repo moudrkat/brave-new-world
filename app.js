@@ -1,4 +1,4 @@
-import { MODELS, WORLD_SCHEMA, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec, detemper, surprise, sprout, turnWeather, turnFont, completeJson } from "./mind.js";
+import { exampleFor, MODELS, WORLD_SCHEMA, systemFor, userMessage, requestFor, chatOptsFor, extractHtml, dreamToPage, retryMessage, renderWorld, applyAction, parseAction, forkGrammar, normalizeSpec, detemper, surprise, sprout, turnWeather, turnFont, completeJson } from "./mind.js";
 import { DEMOS } from "./demos.js";
 import "./console.js";
 
@@ -368,7 +368,8 @@ async function dream(wish, fork = null) {
   await cancelAhead();
 
   const strategy = STRATEGY;
-  let messages = fork ? fork.messages : messagesFor(wish, strategy, Math.floor(Math.random() * 4)); // the same wish twice is shown a different example, so it is not the same world twice
+  let salt = Math.floor(Math.random() * 4); // the same wish twice is shown a different example, so it is not the same world twice
+  let messages = fork ? fork.messages : messagesFor(wish, strategy, salt);
   const asked = messages; // what the accepted attempt was asked with, kept for a later fork; retries add to a copy
   const grammar = fork ? forkGrammar(fork.raw, fork.ghost) : null;
   let report = null, retries = 0, raw = "", t0 = performance.now(), out = null, interrupted = 0;
@@ -379,7 +380,7 @@ async function dream(wish, fork = null) {
       // a stream cut off by a leftover interrupt (a head start aborted a moment ago) is not the model's failure: ask again, quietly
       if (out.finish === "abort" && state.dreaming && interrupted < 3) { interrupted++; con.setStatus("dreaming · " + wish); continue; }
       raw = out.raw;
-      report = dreamToPage(raw, wish, out.finish, strategy, out.tokens);
+      report = dreamToPage(raw, wish, out.finish, strategy, out.tokens, fork || strategy !== "spec" ? null : exampleFor(wish, salt)[1].title);
       attempts.push({ raw, finish: out.finish, tokens: out.n, seconds: out.seconds, issues: report.issues });
       const bad = report.issues.filter((i) => i.fatal).map((i) => i.kind);
       const fixed = report.issues.filter((i) => !i.fatal).map((i) => i.kind);
@@ -388,11 +389,16 @@ async function dream(wish, fork = null) {
         (retries ? ` · retry ${retries}` : ""),
         report.fatal
       );
+      if (report.copied && !report.fatal && retries < 1 && state.dreaming && !fork) {
+        retries++; salt = 4 + retries;
+        con.setStatus("it handed back the example's own world, asking again with another");
+        messages = messagesFor(wish, strategy, salt); con.setDreaming(true); continue;
+      }
       if (!report.fatal || retries >= MAX_RETRIES || !state.dreaming || fork) break;
-      retries++;
+      retries++; salt = 4 + retries;
       con.setStatus(`the page came back broken (${bad.join(", ")}), asking again · ${retries}/${MAX_RETRIES}`);
       // not shown its broken attempt: shown it, a small model copies it back at near-total certainty
-      messages = strategy === "spec" ? messagesFor(wish, strategy, 4 + retries) : [...messages, { role: "assistant", content: raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }];
+      messages = strategy === "spec" ? messagesFor(wish, strategy, salt) : [...messages, { role: "assistant", content: raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }];
       con.setDreaming(true);
     }
   } catch (err) {
