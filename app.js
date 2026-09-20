@@ -665,7 +665,7 @@ async function walkInto(index, kind, el) {
   if (!ghost || !cur.raw || ghost.at == null) return con.setStatus("this ghost has no road back to it");
   lean(el);
   const messages = cur.messages || [{ role: "system", content: systemFor("spec", { wish: cur.wish }) }, { role: "user", content: userMessage(cur.wish, "spec") }];
-  dream(cur.wish.replace(/ · .*$/, ""), { messages, raw: cur.raw, ghost }).catch((err) => { console.error(err); con.setStatus("the fork broke: " + (err?.message || err), true); state.dreaming = false; con.setDreaming(false); });
+  dream(cur.wish.replace(/ · .*$/, ""), { messages, raw: cur.raw, ghost }).catch((err) => { console.error(err); con.setStatus((con.awake ? "the fork broke: " : "to walk into a ghost the mind must be awake · ") + (err?.message || err), true); state.dreaming = false; con.setDreaming(false); });
 }
 document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && (e.target.classList?.contains("sign") || e.target.classList?.contains("lever"))) { e.preventDefault(); e.target.click(); } });
 document.addEventListener("click", (e) => {
