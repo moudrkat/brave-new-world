@@ -29,7 +29,7 @@ const VIEW = PHONE ? { width: 390, height: 780, dsf: 1.75, mobile: true } : { wi
 // ghost get pressed, so the film shows every way of moving through a world
 const WISHES = [
   "a neon city in the rain, everything reflects",
-  "a forest of white birches under snow, one red bird",
+  "a forest of white birches under snow, bright morning, one red bird",
 ];
 const TYPE_MS = 38, HOLD_ZERO = 1800, HOLD_WORLD = 3000, HOLD_LEVER = 2000, HOLD_END = 1200, HOLD_HEAD = 4200;
 const LAST = "the brave new world"; // the film ends on whatever the model makes of its own title
