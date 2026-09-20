@@ -175,8 +175,9 @@ async function film() {
     const label = await ev(`(() => { const l = [...document.querySelectorAll(".lever")].find(l => /^set |^add |^remove |^more |^fewer /.test(l.dataset.action)); return l ? l.querySelector(".tag").textContent : ""; })()`);
     if (!label) return false;
     beat("lever", { label });
-    const p = await spot(".lever .tag");
-    if (p) await press(p.x, p.y); else await ev(`[...document.querySelectorAll(".lever")].find(l => l.querySelector(".tag").textContent === ${JSON.stringify(label)}).click()`);
+    // press that lever, not the first one on screen (which may be the model's undo)
+    const p = JSON.parse(await ev(`JSON.stringify((() => { const l = [...document.querySelectorAll(".lever")].find(l => l.querySelector(".tag").textContent === ${JSON.stringify(label)}); if (!l) return null; const b = l.querySelector(".tag").getBoundingClientRect(); const x = b.left + b.width / 2, y = b.top + b.height / 2; return document.elementFromPoint(x, y)?.closest(".lever") === l ? { x, y } : null; })())`));
+    if (p) await press(p.x, p.y); else await ev(`[...document.querySelectorAll(".lever")].find(l => l.querySelector(".tag").textContent === ${JSON.stringify(label)})?.click()`);
     await sleep(HOLD_LEVER);
     console.log(`  pressed "${label}"`);
     return true;
