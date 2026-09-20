@@ -70,31 +70,14 @@ version, and where it runs, is in [docs/how.md](docs/how.md).
 ## Evals
 
 Measured, not assumed. `eval.html` runs the shipped prompt, grammar and
-sampling over held-out wishes and scores what came back; the sets are the
-32 wishes, 16 vague ones ("hi", "blue", "monday", one in Czech, one emoji)
-and 12 edits to a fixed world. Every column is a check, not an opinion:
-broken and dead count what the harness could not read, sense checks the cue
-words of the wish against the fields, original measures how little of the
-prompt's example leaked in, prose is the share of titles, lines and labels
-that are language, levers is the share of levers whose label says what they
-do, doors is whether the door leads away from where you stand. What no
-column measures is beauty, and the demos are chosen by eye. Full tables in
-`evals/`, the findings and what was changed because of them in [docs/evals.md](docs/evals.md). "tuned" is
-the shipped prompt: one worked example, tuned to the wish; "full", "prose"
-and "bare" are the earlier fixed examples, whole, without their panel, and
-absent. The shipped rows are from 2026-09-20; the eval runs in the same
-browser, on the same GPU, at the same temperature as the page.
-
-| mind | set | example | tok/s | broken | dead | sense | original | prose | levers | doors | edit | kept |
-|---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Qwen2.5 Coder · 0.5B, shipped | wishes | tuned | 14 | 6% | 0% | 0.88 | 0.28 | 1.00 | 0.66 | 1.00 | · | · |
-| Qwen2.5 Coder · 0.5B, shipped | ambiguous | tuned | 15 | 0% | 0% | 0.50 | 0.24 | 1.00 | 0.73 | 0.91 | · | · |
-| Qwen2.5 Coder · 0.5B, shipped | followups | tuned | 16 | 0% | 0% | 0.89 | 0.72 | 1.00 | 0.79 | 1.00 | 0.42 | 0.71 |
-| the same, the day before: three fixed examples, bare wish | wishes | full | 16 | 9% | 0% | 0.39 | 0.29 | 1.00 | 0.80 | 0.98 | · | · |
-| the same, three fixed examples, bare wish | ambiguous | full | 13 | 6% | 0% | · | 0.22 | 1.00 | 0.78 | 0.94 | · | · |
-| the same, three fixed examples, bare wish | followups | full | 15 | 0% | 0% | 0.78 | 0.92 | 1.00 | 0.83 | 0.99 | 0.33 | 0.86 |
-| the same, the example without its panel | wishes | prose | 14 | 12% | 9% | 0.45 | 0.41 | 0.98 | 0.19 | 0.99 | · | · |
-| the same, no example at all | wishes | bare | 15 | 69% | 62% | 0.41 | 0.38 | 0.86 | 0.10 | 0.98 | · | · |
+sampling over held-out wishes and scores what came back with checks, not
+opinions: 32 wishes, 16 vague ones ("hi", "blue", "monday", one in Czech,
+one emoji) and 12 edits to a fixed world. On what ships today the 0.5B comes
+back clean first try 94% of the time and never dead after one retry, honors
+the wish's plain words 88% of the time, and lands 42% of the edits while
+keeping 71% of the world. What no column measures is beauty, and the demos
+are chosen by eye. The table with every run, the findings, and what was
+changed because of them are in [docs/evals.md](docs/evals.md).
 
 ## Two minds, one page
 
@@ -161,5 +144,3 @@ that you did not wish for, and every world has a door out. Miranda said the
 words first, in The Tempest, looking at the first people she had ever met who
 were not her father: "O brave new world, that has such people in it." She
 meant it. Huxley did not. This page would like to mean it again.
-
-> ***Dedicated to everyone brave enough to leave the old world, whatever that means for them now.***

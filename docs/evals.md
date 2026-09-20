@@ -7,6 +7,25 @@ specs and issues sits next to them (gitignored for size). `eval.html` reruns
 any of it: `?set=wishes|ambiguous|followups`, `?ex=full|prose|bare`, and
 `?mind=` for a model on a server.
 
+## The table
+
+"tuned" is the shipped prompt: one worked example, tuned to the wish;
+"full", "prose" and "bare" are the earlier fixed examples, whole, without
+their panel, and absent. The shipped rows are from 2026-09-20; the eval runs
+in the same browser, on the same GPU, at the same temperature as the page.
+Every column is a check, not an opinion; what no column measures is beauty.
+
+| mind | set | example | tok/s | broken | dead | sense | original | prose | levers | doors | edit | kept |
+|---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| Qwen2.5 Coder · 0.5B, shipped | wishes | tuned | 14 | 6% | 0% | 0.88 | 0.28 | 1.00 | 0.66 | 1.00 | · | · |
+| Qwen2.5 Coder · 0.5B, shipped | ambiguous | tuned | 15 | 0% | 0% | 0.50 | 0.24 | 1.00 | 0.73 | 0.91 | · | · |
+| Qwen2.5 Coder · 0.5B, shipped | followups | tuned | 16 | 0% | 0% | 0.89 | 0.72 | 1.00 | 0.79 | 1.00 | 0.42 | 0.71 |
+| the same, the day before: three fixed examples, bare wish | wishes | full | 16 | 9% | 0% | 0.39 | 0.29 | 1.00 | 0.80 | 0.98 | · | · |
+| the same, three fixed examples, bare wish | ambiguous | full | 13 | 6% | 0% | · | 0.22 | 1.00 | 0.78 | 0.94 | · | · |
+| the same, three fixed examples, bare wish | followups | full | 15 | 0% | 0% | 0.78 | 0.92 | 1.00 | 0.83 | 0.99 | 0.33 | 0.86 |
+| the same, the example without its panel | wishes | prose | 14 | 12% | 9% | 0.45 | 0.41 | 0.98 | 0.19 | 0.99 | · | · |
+| the same, no example at all | wishes | bare | 15 | 69% | 62% | 0.41 | 0.38 | 0.86 | 0.10 | 0.98 | · | · |
+
 ## The scorer
 
 Per world: did a spec parse (the grammar makes this near-certain), was the
