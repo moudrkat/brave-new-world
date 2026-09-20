@@ -90,12 +90,28 @@ async function film() {
     } catch (e) { console.error("frame not kept:", e?.message || e); }
     s.send("Page.screencastFrameAck", { sessionId: p.sessionId }).catch((e) => console.error("ack failed:", e?.message || e));
   });
-  // the camera must not stop quietly: when frames stop while the take runs, say so, and try to start it again
+  // The camera must not stop quietly. On this machine the screencast can stall for good once the
+  // model is on the GPU; screenshots keep working at six or seven a second. So when frames stop,
+  // the take says so, polls screenshots instead, and keeps asking for the screencast back.
+  // FILM_POLL=1 films by screenshots from the start (to check that path); FILM_TRACE=1 logs frames/s.
+  let polling = false, rolling = true, screencastOn = true;
+  const restartScreencast = async () => { try { if (screencastOn) await s.send("Page.stopScreencast"); screencastOn = false; await s.send("Page.startScreencast", { format: "jpeg", quality: 88, maxWidth: VIEW.width * VIEW.dsf, maxHeight: VIEW.height * VIEW.dsf, everyNthFrame: 1 }); screencastOn = true; } catch (e) { console.error("screencast restart failed:", e?.message || e); } };
+  const poll = async () => {
+    if (polling) return; polling = true; let shots = 0;
+    console.error("camera: polling screenshots");
+    while (rolling && polling) {
+      try { const r = await s.send("Page.captureScreenshot", { format: "jpeg", quality: 88 }); if (r.result?.data) { const name = `${dir}/f${String(n++).padStart(6, "0")}.jpg`; writeFileSync(name, Buffer.from(r.result.data, "base64")); frames.push({ name, t: Date.now() / 1000 }); shots++; perSec++; } }
+      catch (e) { console.error("screenshot failed:", e?.message || e); await sleep(300); }
+      if (screencastOn && Date.now() - lastFrameAt < 500) { polling = false; console.error(`camera: screencast is back after ${shots} screenshots`); }
+    }
+  };
   const camera = setInterval(async () => {
-    if (process.env.FILM_TRACE) console.error(`camera ${perSec} frames/s`);
+    if (process.env.FILM_TRACE) console.error(`camera ${perSec} frames/s${polling ? " (polling)" : ""}`);
     perSec = 0;
-    if (Date.now() - lastFrameAt > 2000) { console.error(`no frames for ${((Date.now() - lastFrameAt) / 1000).toFixed(1)} s, restarting the screencast`); lastFrameAt = Date.now(); try { await s.send("Page.stopScreencast"); await s.send("Page.startScreencast", { format: "jpeg", quality: 88, maxWidth: VIEW.width * VIEW.dsf, maxHeight: VIEW.height * VIEW.dsf, everyNthFrame: 1 }); } catch (e) { console.error("restart failed:", e?.message || e); } }
+    if (!polling && Date.now() - lastFrameAt > 1500) { console.error(`no frames for ${((Date.now() - lastFrameAt) / 1000).toFixed(1)} s`); poll(); }
+    if (polling && (n % 60) < 8) restartScreencast(); // every few seconds, ask for the screencast again
   }, 1000);
+  if (process.env.FILM_POLL) { await s.send("Page.stopScreencast"); screencastOn = false; poll(); }
   await s.send("Page.startScreencast", { format: "jpeg", quality: 88, maxWidth: VIEW.width * VIEW.dsf, maxHeight: VIEW.height * VIEW.dsf, everyNthFrame: 1 });
   const now = () => Date.now() / 1000;
   const beats = [];
@@ -218,8 +234,8 @@ async function film() {
   { const at = JSON.parse(await ev(`JSON.stringify(${CON}.sky.shogAt())`)); beat("head", { at }); await press(at.x, at.y); await sleep(300); if (!(await ev(`!${CON}.shadowRoot.getElementById("head").hidden`))) await ev(`${CON}.openHead(true)`); await sleep(HOLD_HEAD); }
   await sleep(HOLD_END);
   beat("end");
-  clearInterval(camera);
-  await s.send("Page.stopScreencast");
+  clearInterval(camera); rolling = false; polling = false;
+  if (screencastOn) await s.send("Page.stopScreencast");
   await sleep(300);
   s.close();
   await fetch(`http://localhost:${PORT}/json/close/${id}`);
