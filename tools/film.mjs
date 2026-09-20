@@ -31,6 +31,11 @@ const WISHES = [
   "a neon city in the rain, everything reflects",
   "a forest of white birches under snow, bright morning, one red bird",
 ];
+// the page opens on one of its remembered dreams; the film must not then type the same wish, so
+// each typed wish has an understudy for when the opening already showed it, and so has the door's fallback
+const UNDERSTUDY = { "a neon city in the rain, everything reflects": "a black and gold ballroom, empty, one candle", "a desert at noon, three black pyramids": "a hospital for tired stars" };
+let shown = ""; // the wish of the dream the page opened on
+const fresh = (wish) => (shown && wish.split(",")[0] && shown.includes(wish.split(",")[0]) ? UNDERSTUDY[wish] || wish : wish);
 const TYPE_MS = 38, HOLD_ZERO = 1800, HOLD_WORLD = 3000, HOLD_LEVER = 2000, HOLD_END = 1200, HOLD_HEAD = 4200;
 const LAST = "the brave new world"; // the film ends on whatever the model makes of its own title
 // the waiting runs faster than it happened; the typing and the worlds stay at 1x.
@@ -230,18 +235,20 @@ async function film() {
     return true;
   };
 
+  shown = (await ev(`window.__bnw.worlds[1]?.wish || ""`)) || "";
   for (let k = 0; k < WISHES.length; k++) {
-    beat("type", { wish: WISHES[k] });
+    const wish = fresh(WISHES[k]);
+    beat("type", { wish });
     const before = await count();
-    await type(WISHES[k]);
-    beat("dream", { wish: WISHES[k] });
+    await type(wish);
+    beat("dream", { wish });
     await waitDream(before);
     await describe();
     await sleep(HOLD_WORLD);
     if (k === 0) { await pressLever(); await tapThing(); await tapGround(); }
     if (k === 1) { if (!(await walkIntoGhost())) await pressLever(); }
   }
-  if (!(await takeDoor())) { beat("type", { wish: "a desert at noon, three black pyramids" }); const before = await count(); await type("a desert at noon, three black pyramids"); beat("dream", {}); await waitDream(before); await describe(); await sleep(HOLD_WORLD); }
+  if (!(await takeDoor())) { const w2 = fresh("a desert at noon, three black pyramids"); beat("type", { wish: w2 }); const before = await count(); await type(w2); beat("dream", {}); await waitDream(before); await describe(); await sleep(HOLD_WORLD); }
   // where it all leads: the model's own answer to the title, whatever it is
   { beat("type", { wish: LAST }); const before = await count(); await type(LAST); beat("dream", { wish: LAST }); await waitDream(before); await describe(); await sleep(HOLD_WORLD + 800); }
   // and a look inside its head, on where it doubted
