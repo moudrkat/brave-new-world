@@ -107,8 +107,8 @@ const CSS = `
 .veil.forming { background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 40%, transparent), transparent 72%); }
 /* the veil: the tokens as a grain of light across the sky while it dreams, gone when the world lands (?veil=0 turns it off) */
 :host(:not([data-veil])) .veil-inner { display: none !important; }
-:host([data-veil]) .veil-inner { opacity: 0.4; mix-blend-mode: screen; max-height: 38vh; font-size: clamp(18px, 3vw, 34px); }
-:host([data-veil]) .veil.forming .veil-inner { opacity: 0.34; }
+:host([data-veil]) .veil-inner { opacity: 0.26; mix-blend-mode: screen; max-height: 38vh; font-size: clamp(18px, 3vw, 34px); }
+:host([data-veil]) .veil.forming .veil-inner { opacity: 0.2; }
 .veil.forming { background: none; }
 :host([data-side="top"]) .veil { justify-content: flex-end; padding-bottom: 12vh; }
 :host([data-side="bottom"]) .veil, :host(:not([data-side])) .veil { justify-content: flex-start; padding-top: 12vh; }
