@@ -30,4 +30,4 @@ function gif(kind, name, before = 1.2, after = 6.5, fps = 12, width = 720) {
   const size = execFileSync("stat", ["-c", "%s", `docs/${name}.gif`]).toString().trim();
   console.log(`docs/${name}.gif · ${sel.length} frames · ${(size / 1e6).toFixed(1)} MB`);
 }
-gif("uninvited", "opening", 0.4, 10.5, 9, 600); // the page beginning by itself: a world forming as it is written
+gif("uninvited", "opening", 0.4, 10.5, 8, 480); // the page beginning by itself: a world forming as it is written
