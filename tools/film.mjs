@@ -41,7 +41,8 @@ const LAST = "the brave new world"; // the film ends on whatever the model makes
 // the waiting runs faster than it happened; the typing and the worlds stay at 1x.
 // FILM_RATE=6 node tools/film.mjs --recompose out/brave-new-world re-cuts a take faster without re-recording
 // the world forms while the model writes it, so a dream is no longer a wait: it runs only a little faster than it happened
-const RATE_WAKE = 6, RATE_DREAM = +(process.env.FILM_RATE || 2.5), RATE_HOLD = +(process.env.FILM_HOLD || 1.3); // FILM_HOLD=1.6 tightens the pauses on a world too
+const RATE_WAKE = 6, RATE_DREAM = +(process.env.FILM_RATE || 2.5), RATE_HOLD = +(process.env.FILM_HOLD || 1.3);
+const RATE_FIRST = +(process.env.FILM_FIRST || Math.min(RATE_DREAM, 3)); // the first typed world forming is the moment; it is hurried least // FILM_HOLD=1.6 tightens the pauses on a world too
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const targets = async () => (await fetch(`http://localhost:${PORT}/json`)).json();
@@ -213,14 +214,15 @@ async function film() {
     return true;
   };
   // a solid thing in the scene, tapped: the camera leans in while the next world is dreamt
+  // walking: a thing tapped twice within a moment is walked to; the camera leans into it while the next world is dreamt
   const walkToThing = async () => {
-    const kind = await ev(`(() => { const els = [...document.querySelectorAll(".el:not(.ghost)")].filter(e => { const r = e.getBoundingClientRect(); return r.width > 30 && r.top > 40 && r.bottom < innerHeight * 0.7; }); return els.length ? els[Math.floor(els.length / 2)].dataset.kind : ""; })()`);
-    if (!kind) return false;
-    beat("walk", { thing: kind });
+    const p = JSON.parse(await ev(`JSON.stringify((() => { for (const el of document.querySelectorAll(".el:not(.ghost):not(.mirror)")) { const b = el.getBoundingClientRect(); if (b.width < 30 || b.top < 40 || b.bottom > ${VIEW.height} - 60) continue; const x = b.left + b.width / 2, y = b.top + b.height / 2; if (document.elementFromPoint(x, y)?.closest(".el") === el) return { x, y, kind: el.dataset.kind }; } return null; })())`));
+    if (!p) return false;
+    beat("walk", { thing: p.kind });
     const before = await count();
-    await ev(`(() => { const g = [...document.querySelectorAll(".el:not(.ghost)")].find(e => e.dataset.kind === ${JSON.stringify(kind)}); const r = g.getBoundingClientRect(); g.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); })()`);
-    beat("dream", { wish: "walk to the " + kind });
-    await waitDream(before);
+    await press(p.x, p.y); await sleep(900); await press(p.x, p.y);
+    beat("dream", { wish: "walk to the " + p.kind });
+    if (!(await waitDream(before, 400))) { console.error("the walk led nowhere in time"); return false; }
     await describe();
     await sleep(HOLD_WORLD);
     return true;
@@ -256,7 +258,7 @@ async function film() {
     await waitDream(before);
     await describe();
     await sleep(HOLD_WORLD);
-    if (k === 0) { await pressLever(); const first = await tapThing(); await tapSky(); await tapGround(); await tapTitle(); await tapAnotherThing(first?.kind || ""); }
+    if (k === 0) { await pressLever(); const first = await tapThing(); await tapSky(); await tapGround(); await tapTitle(); await tapAnotherThing(first?.kind || ""); await walkToThing(); }
     if (k === 1) { if (!(await walkIntoGhost())) await pressLever(); }
   }
   if (!(await takeDoor())) { const w2 = fresh("a desert at noon, three black pyramids"); beat("type", { wish: w2 }); const before = await count(); await type(w2); beat("dream", {}); await waitDream(before); await describe(); await sleep(HOLD_WORLD); }
@@ -287,9 +289,11 @@ function compose() {
   const frames = JSON.parse(readFileSync(out + ".frames.json", "utf8"));
   const fast = [];
   const b = take.beats;
+  const firstType = b.findIndex((x) => x.kind === "type");
+  const firstDream = b.findIndex((x, i) => i > firstType && x.kind === "dream");
   for (let i = 0; i < b.length; i++) {
     if (b[i].kind === "wake") fast.push([b[i].t + 0.6, b[i + 1].t - 0.3, RATE_WAKE]);
-    if (b[i].kind === "dream") fast.push([b[i].t + 1.5, b[i + 1].t - 1.2, RATE_DREAM]);
+    if (b[i].kind === "dream") fast.push([b[i].t + 1.5, b[i + 1].t - 1.2, firstDream === i ? RATE_FIRST : RATE_DREAM]);
     if (b[i].kind === "ahead") fast.push([b[i].t + 1.0, b[i + 1].t - 0.6, RATE_DREAM]);
     if (b[i].kind === "world" && b[i + 1] && RATE_HOLD !== 1) fast.push([b[i].t + 1.4, b[i + 1].t - 0.2, RATE_HOLD]);
   }
