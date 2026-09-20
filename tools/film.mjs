@@ -180,7 +180,7 @@ async function film() {
     return true;
   };
   // a thing tapped: a surprise; the ground tapped: something grows
-  const tapThing = async () => { const p = await spot(".el:not(.ghost):not(.mirror)"); if (!p) return false; beat("surprise"); await press(p.x, p.y); await sleep(HOLD_LEVER); return true; };
+  const tapThing = async () => { const p = await spot(".el:not(.ghost):not(.mirror)"); if (!p) return false; const kind = await ev(`document.elementFromPoint(${p.x}, ${p.y})?.closest(".el")?.dataset.kind || ""`); beat("surprise", { kind }); await press(p.x, p.y); await sleep(HOLD_LEVER); return { kind }; };
   const tapGround = async () => {
     const g = JSON.parse(await ev(`JSON.stringify(document.querySelector(".ground")?.getBoundingClientRect() || null)`)); if (!g) return false;
     const y = Math.min(g.top + 40, VIEW.height * 0.62);
@@ -189,6 +189,17 @@ async function film() {
     if (x == null) return false;
     beat("sprout"); await press(x, y); await sleep(HOLD_LEVER); return true;
   };
+  // a tap on empty sky: a shooting star (every third one turns the weather)
+  const tapSky = async () => {
+    const y = VIEW.height * 0.2;
+    const x = JSON.parse(await ev(`JSON.stringify((() => { const boxes = [...document.querySelectorAll(".el, .lever, .sign, .words")].map((e) => e.getBoundingClientRect()); for (const fx of [0.5, 0.35, 0.65, 0.25, 0.75, 0.15, 0.85]) { const x = ${VIEW.width} * fx; if (!boxes.some((b) => x > b.left - 8 && x < b.right + 8 && ${y} > b.top - 8 && ${y} < b.bottom + 8)) return x; } return null; })())`));
+    if (x == null) return false;
+    beat("sky"); await press(x, y); await sleep(HOLD_LEVER * 0.6); return true;
+  };
+  // a tap on the title: the world changes its hand
+  const tapTitle = async () => { const p = await spot(".words h1"); if (!p) return false; beat("font"); await press(p.x, p.y); await sleep(HOLD_LEVER); return true; };
+  // a second thing, a different one from the first
+  const tapAnotherThing = async (skipKind) => { const p = JSON.parse(await ev(`JSON.stringify((() => { for (const el of document.querySelectorAll(".el:not(.ghost):not(.mirror)")) { if (el.dataset.kind === ${JSON.stringify(skipKind)}) continue; const b = el.getBoundingClientRect(); if (b.width < 8 || b.top < 40 || b.bottom > ${VIEW.height} - 60) continue; const x = b.left + b.width / 2, y = b.top + b.height / 2; if (document.elementFromPoint(x, y)?.closest(".el") === el) return { x, y, kind: el.dataset.kind }; } return null; })())`)); if (!p) return false; beat("surprise", { kind: p.kind }); await press(p.x, p.y); await sleep(HOLD_LEVER); return true; };
   const walkIntoGhost = async () => {
     const kind = await ev(`document.querySelector(".el.ghost")?.dataset.kind || ""`);
     if (!kind) return false;
@@ -245,7 +256,7 @@ async function film() {
     await waitDream(before);
     await describe();
     await sleep(HOLD_WORLD);
-    if (k === 0) { await pressLever(); await tapThing(); await tapGround(); }
+    if (k === 0) { await pressLever(); const first = await tapThing(); await tapSky(); await tapGround(); await tapTitle(); await tapAnotherThing(first?.kind || ""); }
     if (k === 1) { if (!(await walkIntoGhost())) await pressLever(); }
   }
   if (!(await takeDoor())) { const w2 = fresh("a desert at noon, three black pyramids"); beat("type", { wish: w2 }); const before = await count(); await type(w2); beat("dream", {}); await waitDream(before); await describe(); await sleep(HOLD_WORLD); }
