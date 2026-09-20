@@ -311,12 +311,17 @@ function compose() {
     let j = i + 1; while (j < b.length && !["type", "door", "ahead", "lever", "walk", "ghost", "head", "end"].includes(b[j].kind)) j++;
     fast.push([b[i].t - 0.2, b[j].t - 0.2, 0]);
   }
-  const rateAt = (t) => { for (const [a, z, r] of fast) if (t >= a && t < z) return r; return 1; };
+  // FILM_WINDOWS="14-17@1.5,17-44@3" keeps only these stretches of the take (seconds from the first
+  // frame, each at its own rate) and nothing else: a clip, not the whole film
+  const windows = (process.env.FILM_WINDOWS || "").split(",").filter(Boolean).map((w) => { const [span, r] = w.split("@"); const [a, z] = span.split("-").map(Number); return [frames[0].t + a, frames[0].t + z, +(r || 1)]; });
+  const rateAt = (t) => { if (windows.length) { for (const [a, z, r] of windows) if (t >= a && t < z) return r; return 0; } for (const [a, z, r] of fast) if (t >= a && t < z) return r; return 1; };
+  // the camera pauses for a moment after a keystroke or a press; a frame held that long is a freeze, so no frame holds past MAX_HOLD
+  const MAX_HOLD = +(process.env.FILM_MAXHOLD || 0.3);
   let list = "ffconcat version 1.0\n", total = 0;
   for (let i = 0; i < frames.length; i++) {
     const rate = rateAt(frames[i].t);
     if (rate === 0) continue; // dropped
-    const dur = (i + 1 < frames.length ? frames[i + 1].t - frames[i].t : 1 / FPS) / rate;
+    const dur = Math.min(MAX_HOLD, (i + 1 < frames.length ? frames[i + 1].t - frames[i].t : 1 / FPS) / rate);
     if (dur <= 0) continue;
     list += `file '${frames[i].name.split("/").pop()}'\nduration ${dur.toFixed(4)}\n`;
     total += dur;
