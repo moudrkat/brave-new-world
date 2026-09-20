@@ -56,7 +56,7 @@ async function connect(id) {
   // a dropped connection must fail loudly, not leave the take awaiting a reply that never comes
   ws.onclose = () => { if (closed) return; console.error("devtools connection closed mid-take"); for (const p of pending.values()) p.rej(new Error("devtools closed")); pending.clear(); process.exitCode = 3; };
   ws.onerror = (e) => console.error("devtools error", e?.message || e);
-  const send = (method, params = {}) => new Promise((res, rej) => { const id = ++seq; pending.set(id, { res, rej }); try { ws.send(JSON.stringify({ id, method, params })); } catch (e) { pending.delete(id); rej(e); } });
+  const send = (method, params = {}) => new Promise((res, rej) => { const id = ++seq; const timer = setTimeout(() => { if (pending.has(id)) { pending.delete(id); rej(new Error(`devtools did not answer ${method} in 90 s`)); } }, 90000); pending.set(id, { res: (v) => { clearTimeout(timer); res(v); }, rej: (e) => { clearTimeout(timer); rej(e); } }); try { ws.send(JSON.stringify({ id, method, params })); } catch (e) { pending.delete(id); rej(e); } });
   return { send, on: (m, f) => (handlers[m] = f), close: () => { closed = true; ws.close(); } };
 }
 
@@ -124,6 +124,7 @@ async function film() {
   const beats = [];
   const beat = (kind, extra = {}) => beats.push({ kind, t: now(), ...extra });
   const describe = async () => { const w = await ev(`JSON.stringify((w => ({ wish: w.wish, title: w.spec?.title, side: w.spec?.console.side, tone: w.spec?.console.tone, shape: w.spec?.console.shape, buttons: w.spec?.console.buttons, next: w.spec?.next, ghosts: (w.ghosts || []).map(g => g.kind), retries: w.retries, seconds: w.seconds, tokens: w.tokens?.length }))(window.__bnw.worlds.at(-1)))`); beat("world", { world: JSON.parse(w) }); console.log("  → " + w); };
+  const deadline = setTimeout(() => { console.error("the take ran past nine minutes; keeping what was filmed"); process.emitWarning("deadline"); rolling = false; }, 9 * 60 * 1000);
   try {
   await sleep(HOLD_ZERO);
   // the page begins moving by itself: one of its remembered dreams. The film waits for it, then wakes the mind.
@@ -270,6 +271,7 @@ async function film() {
   { const at = JSON.parse(await ev(`JSON.stringify(${CON}.sky.shogAt())`)); beat("head", { at }); await press(at.x, at.y); await sleep(300); if (!(await ev(`!${CON}.shadowRoot.getElementById("head").hidden`))) await ev(`${CON}.openHead(true)`); await sleep(HOLD_HEAD); }
   await sleep(HOLD_END);
   } catch (e) { console.error("the take broke, keeping what was filmed:", e?.message || e); }
+  clearTimeout(deadline);
   beat("end");
   clearInterval(camera); rolling = false; polling = false;
   if (screencastOn) await s.send("Page.stopScreencast");
