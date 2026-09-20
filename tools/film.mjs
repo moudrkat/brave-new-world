@@ -117,6 +117,7 @@ async function film() {
   const beats = [];
   const beat = (kind, extra = {}) => beats.push({ kind, t: now(), ...extra });
   const describe = async () => { const w = await ev(`JSON.stringify((w => ({ wish: w.wish, title: w.spec?.title, side: w.spec?.console.side, tone: w.spec?.console.tone, shape: w.spec?.console.shape, buttons: w.spec?.console.buttons, next: w.spec?.next, ghosts: (w.ghosts || []).map(g => g.kind), retries: w.retries, seconds: w.seconds, tokens: w.tokens?.length }))(window.__bnw.worlds.at(-1)))`); beat("world", { world: JSON.parse(w) }); console.log("  → " + w); };
+  try {
   await sleep(HOLD_ZERO);
   // the page begins moving by itself: one of its remembered dreams. The film waits for it, then wakes the mind.
   beat("uninvited");
@@ -153,9 +154,9 @@ async function film() {
   // counted before the action that starts the dream: a door dreamt ahead
   // lands its world synchronously, and counting afterwards would wait forever
   const count = () => ev("window.__bnw.worlds.length");
-  const waitDream = async (before) => {
-    for (let i = 0; i < 1000; i++) { await sleep(300); if ((await count()) > before && !(await ev("window.__bnw.dreaming"))) return; }
-    throw new Error("the dream never ended");
+  const waitDream = async (before, limit = 500) => {
+    for (let i = 0; i < limit; i++) { await sleep(300); if ((await count()) > before && !(await ev("window.__bnw.dreaming"))) return true; }
+    return false; // the dream never ended, or never began: the take goes on without it
   };
 
   // a solid lever, i.e. one that changes this world rather than asking for another
@@ -210,7 +211,10 @@ async function film() {
     const before = await count();
     if (!(await pressSel(".sign .board"))) await ev(`document.querySelector(".sign")?.click()`);
     beat("dream", { wish: "door: " + door });
-    await waitDream(before);
+    // a press that did not take (the sign moved, or was mid-transition) is wished by hand instead
+    await sleep(2500);
+    if ((await count()) === before && !(await ev("window.__bnw.dreaming")) && door) { console.error("the door press did not take, wishing it by hand"); await ev(`(() => { const c = ${CON}; c.wish = ${JSON.stringify(door)}; c.submit(); })()`); }
+    if (!(await waitDream(before, 400))) { console.error("the door led nowhere in time"); return false; }
     await describe();
     await sleep(HOLD_WORLD);
     return true;
@@ -233,6 +237,7 @@ async function film() {
   // and a look inside its head, on where it doubted
   { const at = JSON.parse(await ev(`JSON.stringify(${CON}.sky.shogAt())`)); beat("head", { at }); await press(at.x, at.y); await sleep(300); if (!(await ev(`!${CON}.shadowRoot.getElementById("head").hidden`))) await ev(`${CON}.openHead(true)`); await sleep(HOLD_HEAD); }
   await sleep(HOLD_END);
+  } catch (e) { console.error("the take broke, keeping what was filmed:", e?.message || e); }
   beat("end");
   clearInterval(camera); rolling = false; polling = false;
   if (screencastOn) await s.send("Page.stopScreencast");
