@@ -368,7 +368,7 @@ async function dream(wish, fork = null) {
   await cancelAhead();
 
   const strategy = STRATEGY;
-  let messages = fork ? fork.messages : messagesFor(wish, strategy);
+  let messages = fork ? fork.messages : messagesFor(wish, strategy, Math.floor(Math.random() * 4)); // the same wish twice is shown a different example, so it is not the same world twice
   const asked = messages; // what the accepted attempt was asked with, kept for a later fork; retries add to a copy
   const grammar = fork ? forkGrammar(fork.raw, fork.ghost) : null;
   let report = null, retries = 0, raw = "", t0 = performance.now(), out = null, interrupted = 0;
@@ -392,7 +392,7 @@ async function dream(wish, fork = null) {
       retries++;
       con.setStatus(`the page came back broken (${bad.join(", ")}), asking again · ${retries}/${MAX_RETRIES}`);
       // not shown its broken attempt: shown it, a small model copies it back at near-total certainty
-      messages = strategy === "spec" ? messagesFor(wish, strategy, retries) : [...messages, { role: "assistant", content: raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }];
+      messages = strategy === "spec" ? messagesFor(wish, strategy, 4 + retries) : [...messages, { role: "assistant", content: raw.slice(0, 4000) }, { role: "user", content: retryMessage(report.issues, strategy) }];
       con.setDreaming(true);
     }
   } catch (err) {

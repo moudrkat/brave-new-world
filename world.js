@@ -514,7 +514,8 @@ function levers(s, horizon) {
     else if (a?.verb === "set" && a.field === "font") pt = { x: 50, y: s.text_place === "top" ? 3 : 90 };
     else pt = { x: signSide === "right" ? 84 : 16, y: horizon + 10 + i * 6 };
     pt = clear({ x: Math.max(6, Math.min(94, pt.x + (kind ? 7 : 0))), y: Math.max(3, Math.min(92, pt.y - (kind ? 6 : 0))) });
-    const top = s.console.side === "top" ? `max(${pt.y}%, calc(var(--bnw-panel, 30vh) + 30px))` : s.console.side === "bottom" ? `min(${pt.y}%, calc(100% - var(--bnw-panel, 30vh) - 30px))` : `${pt.y}%`;
+    // pushed out from under the panel, each lever by a different amount, so two levers in the sky do not land on one spot
+    const top = s.console.side === "top" ? `max(${pt.y}%, calc(var(--bnw-panel, 30vh) + ${30 + i * 44}px))` : s.console.side === "bottom" ? `min(${pt.y}%, calc(100% - var(--bnw-panel, 30vh) - ${30 + i * 44}px))` : `${pt.y}%`;
     return `<div role="button" tabindex="0" class="lever${kind ? " on-thing" : ""}" data-action="${esc(b.action)}" style="left:${pt.x}%;top:${top};--dz:0.5" title="a lever on this world: ${esc(b.action)}"><i class="pin"></i><span class="tag">${esc(b.label)}</span></div>`;
   }).join("");
   return `<div class="levers">${html}</div>`;
