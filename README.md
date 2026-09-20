@@ -79,17 +79,22 @@ prompt's example leaked in, prose is the share of titles, lines and labels
 that are language, levers is the share of levers whose label says what they
 do, doors is whether the door leads away from where you stand. What no
 column measures is beauty, and the demos are chosen by eye. Full tables in
-`evals/`, the findings and what was changed because of them in
-[docs/evals.md](docs/evals.md).
+`evals/`, the findings and what was changed because of them in [docs/evals.md](docs/evals.md). "tuned" is
+the shipped prompt: one worked example, tuned to the wish; "full", "prose"
+and "bare" are the earlier fixed examples, whole, without their panel, and
+absent. The shipped rows are from 2026-09-20; the eval runs in the same
+browser, on the same GPU, at the same temperature as the page.
 
 | mind | set | example | tok/s | broken | dead | sense | original | prose | levers | doors | edit | kept |
 |---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Qwen2.5 Coder · 0.5B, shipped (one door) | wishes | full | 14 | 6% | 3% | 0.46 | 0.36 | 0.99 | 0.66 | 1.00 | · | · |
-| Qwen2.5 Coder · 0.5B | ambiguous | full | 13 | 25% | 19% | 0.00 | 0.33 | 0.98 | 0.75 | 0.92 | · | · |
-| Qwen2.5 Coder · 0.5B | followups | full | 15 | 0% | 0% | 0.78 | 0.92 | 1.00 | 0.83 | 0.99 | 0.33 | 0.86 |
-| the same, three doors, retry shown its broken attempt | wishes | full | 12 | 12% | 12% | 0.42 | 0.50 | 0.97 | 0.64 | 1.00 | · | · |
-| Qwen2.5 Coder · 0.5B | wishes | prose | 14 | 12% | 9% | 0.45 | 0.41 | 0.98 | 0.19 | 0.99 | · | · |
-| Qwen2.5 Coder · 0.5B | wishes | bare | 15 | 69% | 62% | 0.41 | 0.38 | 0.86 | 0.10 | 0.98 | · | · |
+| Qwen2.5 Coder · 0.5B, shipped | wishes | tuned | 14 | 6% | 0% | 0.88 | 0.28 | 1.00 | 0.66 | 1.00 | · | · |
+| Qwen2.5 Coder · 0.5B, shipped | ambiguous | tuned | 15 | 0% | 0% | 0.50 | 0.24 | 1.00 | 0.73 | 0.91 | · | · |
+| Qwen2.5 Coder · 0.5B, shipped | followups | tuned | 16 | 0% | 0% | 0.89 | 0.72 | 1.00 | 0.79 | 1.00 | 0.42 | 0.71 |
+| the same, the day before: three fixed examples, bare wish | wishes | full | 16 | 9% | 0% | 0.39 | 0.29 | 1.00 | 0.80 | 0.98 | · | · |
+| the same, three fixed examples, bare wish | ambiguous | full | 13 | 6% | 0% | · | 0.22 | 1.00 | 0.78 | 0.94 | · | · |
+| the same, three fixed examples, bare wish | followups | full | 15 | 0% | 0% | 0.78 | 0.92 | 1.00 | 0.83 | 0.99 | 0.33 | 0.86 |
+| the same, the example without its panel | wishes | prose | 14 | 12% | 9% | 0.45 | 0.41 | 0.98 | 0.19 | 0.99 | · | · |
+| the same, no example at all | wishes | bare | 15 | 69% | 62% | 0.41 | 0.38 | 0.86 | 0.10 | 0.98 | · | · |
 
 ## Two minds, one page
 
