@@ -11,7 +11,7 @@ import sys
 from huggingface_hub import HfApi
 
 REPO = "Unt1l1f1nd/brave-new-world"
-ALLOW = ["index.html", "style.css", "app.js", "console.js", "mind.js", "world.js", "worker.js", "demos.js",
+ALLOW = ["index.html", "style.css", "app.js", "console.js", "mind.js", "world.js", "worker.js", "demos.js", "picture.js", "sound.js",
          "eval.html", "eval.js", "tools/*.mjs", "tools/serve.py", "evals/*.md", "docs/*.jpg", "docs/*.gif", ".gitignore"]
 
 api = HfApi()
