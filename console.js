@@ -105,7 +105,7 @@ const CSS = `
 .veil { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 8vh 6vw; opacity: 0; transition: opacity 1.2s ease; background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 78%, transparent), transparent 72%); }
 .veil.on { opacity: 1; }
 .veil.forming { background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 40%, transparent), transparent 72%); }
-/* the veil trial (?veil=1): the tokens as a faint grain woven into the sky while it dreams, gone when the world lands; off unless asked */
+/* the veil: the tokens as a grain of light across the sky while it dreams, gone when the world lands (?veil=0 turns it off) */
 :host(:not([data-veil])) .veil-inner { display: none !important; }
 :host([data-veil]) .veil-inner { opacity: 0.4; mix-blend-mode: screen; max-height: 38vh; font-size: clamp(18px, 3vw, 34px); }
 :host([data-veil]) .veil.forming .veil-inner { opacity: 0.34; }
@@ -453,7 +453,7 @@ export class BnwConsole extends HTMLElement {
     root.addEventListener("click", (e) => { if (!e.target.closest?.(".ribbon")) this.hideTip(); });
 
     this.sky = makeSky(root.querySelector(".sky"), this);
-    if (new URLSearchParams(location.search).get("veil") === "1") this.dataset.veil = ""; // the trial
+    if (new URLSearchParams(location.search).get("veil") !== "0") this.dataset.veil = ""; // the tokens as a grain in the sky while it dreams; ?veil=0 turns it off
     // the world needs to know how much of the edge the panel takes, so its
     // words can keep clear of it: --bnw-panel on the root, in pixels
     const panel = root.querySelector(".panel");

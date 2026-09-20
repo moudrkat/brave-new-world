@@ -151,4 +151,15 @@ button says where the wishes go.
 - `eval.html` the models, the wishes, one table; results in `evals/`, findings in `docs/evals.md`
 - `tools/` drive, film, stills, serve, deploy
 
+## The title
+
+Huxley's brave new world was a place where everything had been decided for
+everyone, comfortably, by something larger than any of them, and nobody
+asked. This one is the reverse. It is made by a mind too small to be sure of
+anything, its doubts are drawn on the page for you to read, nothing appears
+that you did not wish for, and every world has a door out. Miranda said the
+words first, in The Tempest, looking at the first people she had ever met who
+were not her father: "O brave new world, that has such people in it." She
+meant it. Huxley did not. This page would like to mean it again.
+
 > ***Dedicated to everyone brave enough to leave the old world, whatever that means for them now.***
