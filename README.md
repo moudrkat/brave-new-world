@@ -39,6 +39,37 @@ any browser, on a phone.
 
 ![a world forming as the model writes it](docs/opening.gif)
 
+## What you can do
+
+- **Wish for a world** in a few words, one word, a feeling, another language.
+  The page becomes it while the model writes: the sky, the things one by one
+  as they are named, the words, then the panel wherever the model put it.
+- **Watch it think.** Every token glows in the panel's ribbon and faintly
+  across the sky, colored by how sure the model was; hover one for the words
+  it almost said.
+- **Pull the levers** the model made for this world, hung on the things they
+  change: let night fall, more birds, let it storm.
+- **Tap a thing** and something happens to it; the sun becomes a moon, the
+  cat leaves, the bell stops the wind. Tap it again and you walk into it: the
+  camera leans in while the next world is dreamt from there.
+- **Tap the empty sky** for a shooting star, the ground to grow something
+  where you touched, the title to change the world's hand.
+- **Tap a ghost**, the faint thing the model almost placed, and walk into the
+  road it did not take.
+- **Take the door.** The model's own wish for the next world stands on a
+  signpost in the scene, with its price in seconds: 0 when it was already
+  dreamt while you looked.
+- **Ask for a change** ("make it night", "the same at noon", "take the boat
+  away") and the world is edited, not replaced.
+- **Tap the creature** for its head: what the grammar decided, what it chose,
+  where it doubted, what it nearly said.
+- **Keep a picture** of the world, or send it: the link is the whole world,
+  ghosts and doubts included, and opens without a download.
+- **Turn on the sound**, made in the tab from the world's sky, hour and weather.
+- **No GPU?** Three remembered dreams replay on any phone, forming the same way.
+- **Nothing leaves your device.** A hidden door points the page at a bigger
+  mind on your own server instead.
+
 ## How
 
 It is never asked to write HTML; a model this size writes HTML the way a
