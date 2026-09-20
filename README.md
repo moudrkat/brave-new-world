@@ -48,7 +48,10 @@ vocabulary of fifty-three, the design of its own panel (edge, tone, shape,
 width, the invitation, the word on the button, up to three levers with a
 label in the world's voice and an action it composes), and one door: the
 wish for the next world. Every token is a choice, not syntax; a JavaScript
-engine paints what it named.
+engine paints what it named. The one worked example in the prompt is tuned
+to the wish, because a model this small copies whatever example it sees: its
+hour, weather and ground follow the wish's plain words, and the rest is drawn
+afresh for every wish, so no two wishes are handed the same default world.
 
 The world is the interface. The levers hang on the things they change, the
 door stands in the scene as a signpost with its price in seconds (0 when it

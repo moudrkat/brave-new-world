@@ -85,6 +85,46 @@ same dial one notch further and says why, so no press is a dud. 29 of the
 75 levers on the shipped run ask the model instead of the engine ("again",
 "elsewhere"): those always lead somewhere, and cost a dream.
 
+## The example is tuned to the wish
+
+A model this small copies the example it is shown, field by field. Shown
+three fixed examples, 26 of 32 worlds stood on the two grounds those
+examples had (sand and floor), 17 were at noon, 16 had clear weather, and
+the panel was one of two designs 21 times. The worlds were repeating and a
+reader noticed before the scorer did: no column measured spread.
+
+Since 2026-09-20 the example is built per wish. Its time, weather and
+ground follow the wish's plain cue words; where the wish says nothing they
+are drawn afresh for that wish, as are the palette, the panel's side, tone,
+shape and width, the font and the place of the words. The example's things,
+words and colors of the things stay its own, and the prompt still says they
+belong to it. The same wish always gets the same example in the eval; on the
+page the same wish typed twice is shown a different one, so it is not the
+same world twice, and a fresh retry gets the next one. Originality is scored
+against the example actually shown, not against all of them.
+
+The eval also sends the wish the way the page does, with its cue words
+attached (`&hints=0` measures the bare wish). It had not been, which
+undercounted what ships.
+
+On the 32 wishes, the same model, prompt otherwise unchanged:
+
+| | fixed examples | tuned example |
+|---|--:|--:|
+| worlds on the two commonest grounds | 26 of 32 | 13 of 32 |
+| distinct grounds | 6 | 11 |
+| distinct weathers | 6 | 8 |
+| distinct panel designs | 5 | 18 |
+| sense | 0.39 | 0.88 |
+| originality | 0.29 | 0.28 |
+| broken first try | 9% | 6% |
+| dead after retry | 0% | 0% |
+
+What did not move: originality, because the model borrows words and colors
+from whatever example it sees; and its own taste, which without a cue leans
+to night and rain and almost never picks dusk. Runs:
+`2026-09-19-spec-qwen05b-final-wishes` and `2026-09-20-spec-qwen05b-ships-wishes`.
+
 ## What the total column was
 
 The raw tables in `evals/` carry a `total` column. In spec mode it scores
