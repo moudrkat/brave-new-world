@@ -20,7 +20,9 @@ const RECOMPOSE = argv.includes("--recompose");
 const positional = argv.filter((a) => !a.startsWith("--"));
 const [base, out] = RECOMPOSE ? [null, positional[0]] : positional;
 const OW = 1080, OH = 1350, FPS = 30, PAPER = "0x07060b";
-const VIEW = PHONE ? { width: 390, height: 780, dsf: 3, mobile: true } : { width: 800, height: 1000, dsf: 2, mobile: false };
+// captured at the output size, not above it: while the model computes on the GPU, a screencast
+// of 1600x2000 stalls for good; 1080x1350 keeps 60 frames a second through a whole dream
+const VIEW = PHONE ? { width: 390, height: 780, dsf: 1.75, mobile: true } : { width: 800, height: 1000, dsf: 1.35, mobile: false };
 
 // two typed wishes as far from each other as the vocabulary allows; the third
 // world comes through a door the model offers, and between them a lever and a
@@ -78,12 +80,22 @@ async function film() {
 
   // the camera
   const frames = []; let n = 0;
+  let lastFrameAt = Date.now(), perSec = 0;
   s.on("Page.screencastFrame", (p) => {
-    const name = `${dir}/f${String(n++).padStart(6, "0")}.jpg`;
-    writeFileSync(name, Buffer.from(p.data, "base64"));
-    frames.push({ name, t: p.metadata.timestamp });
-    s.send("Page.screencastFrameAck", { sessionId: p.sessionId });
+    try {
+      const name = `${dir}/f${String(n++).padStart(6, "0")}.jpg`;
+      writeFileSync(name, Buffer.from(p.data, "base64"));
+      frames.push({ name, t: p.metadata.timestamp });
+      lastFrameAt = Date.now(); perSec++;
+    } catch (e) { console.error("frame not kept:", e?.message || e); }
+    s.send("Page.screencastFrameAck", { sessionId: p.sessionId }).catch((e) => console.error("ack failed:", e?.message || e));
   });
+  // the camera must not stop quietly: when frames stop while the take runs, say so, and try to start it again
+  const camera = setInterval(async () => {
+    if (process.env.FILM_TRACE) console.error(`camera ${perSec} frames/s`);
+    perSec = 0;
+    if (Date.now() - lastFrameAt > 2000) { console.error(`no frames for ${((Date.now() - lastFrameAt) / 1000).toFixed(1)} s, restarting the screencast`); lastFrameAt = Date.now(); try { await s.send("Page.stopScreencast"); await s.send("Page.startScreencast", { format: "jpeg", quality: 88, maxWidth: VIEW.width * VIEW.dsf, maxHeight: VIEW.height * VIEW.dsf, everyNthFrame: 1 }); } catch (e) { console.error("restart failed:", e?.message || e); } }
+  }, 1000);
   await s.send("Page.startScreencast", { format: "jpeg", quality: 88, maxWidth: VIEW.width * VIEW.dsf, maxHeight: VIEW.height * VIEW.dsf, everyNthFrame: 1 });
   const now = () => Date.now() / 1000;
   const beats = [];
@@ -206,6 +218,7 @@ async function film() {
   { const at = JSON.parse(await ev(`JSON.stringify(${CON}.sky.shogAt())`)); beat("head", { at }); await press(at.x, at.y); await sleep(300); if (!(await ev(`!${CON}.shadowRoot.getElementById("head").hidden`))) await ev(`${CON}.openHead(true)`); await sleep(HOLD_HEAD); }
   await sleep(HOLD_END);
   beat("end");
+  clearInterval(camera);
   await s.send("Page.stopScreencast");
   await sleep(300);
   s.close();
