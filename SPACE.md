@@ -13,83 +13,73 @@ short_description: A tiny in-browser model dreams your world into the page
 
 *The brave new world is, in fact, always inside.*
 
-A very small language model lives in this tab. Wake it (one button, 300 MB
-once) and say what world you want: a place, a mood, one word, a change to
-what is on screen. The page becomes that world, token by token, entirely
-inside your browser: its colors, its things, its poem, its type, and the panel
-you are wishing from. The model designs that panel too: which edge it sits on,
-its tone and shape, the invitation in the input, the word on the button, the
-levers beside it, and the doors that lead out of this world into the next.
+> ***Dedicated to everyone brave enough to leave the old world, whatever that means for them now.***
 
-Not a chat. A world, with buttons. Tap a thing to walk to it; tap a ghost,
-the faint thing the model almost placed, to walk into the road not taken; the
-address bar holds the exact world, so a link opens it anywhere with nothing
-downloaded.
+I had been reading the Shoggoth debates, and at some point I could not
+resist.
 
-While it dreams you watch its insides. Every token lands across the page
-glowing with the probability the model gave it, tapping one shows the words
-it almost said, and the things it almost placed are drawn as ghosts at the
-probability they almost had. The creature says what it is thinking about;
-tap it and its head opens on where it doubted and what it nearly said.
+So: in your browser lives a small model, and it creates the world on demand.
+Not a picture of it. The whole page, and the whole UI. You say "a quiet island
+at dusk", or just "sad", or "monday", and the page becomes that world: its
+colors, its things, its poem, and the panel you are standing at. Where the
+panel sits, what the button says, which levers it hands you, and which doors
+lead out of this world into the next one. Then it walks you through.
 
-Three worlds it already dreamt can be stepped into without downloading
-anything, on any browser, on a phone. Their levers work; their doors wake the
-mind.
+It is not a chat. Nothing answers you. A world happens to you, and it has
+buttons, hung on the things they change. Tap a thing and something happens to
+it; tap it again and you walk there. Tap a ghost, the faint thing the model
+almost put there, and you walk into the road it did not take. The door out is
+a signpost, and the world behind it is being dreamt while you look.
 
-## What is where
+Is it a shoggoth? Is a shoggoth building you a brave new world? Are you
+walking through the shoggoth itself? Or was the brave new world inside you all
+along?
 
-- `index.html`, `style.css`: world zero, the page before anyone has wished.
-- `app.js`: wakes the model on demand, streams the dream, hands it to the
-  harness, lets the result take over the page, replays the remembered dreams.
-- `console.js`: the one element the model never writes, in a shadow root so no
-  dreamed CSS can break it. One wake button, one line to wish into, the
-  model's levers and doors, the ribbon of its certainty, the creature.
-- `mind.js`: the contract. The prompt, the models on offer, the harness, the
-  wish sets and the scorer. `eval.html` imports this file, so the eval
-  measures exactly what ships.
-- `world.js`: the vocabulary, the grammar, the painter, the levers.
-- `demos.js`: three real dreams, recorded token by token by
-  `tools/record-demos.mjs`. Nothing in it is hand-made.
-- `eval.html`, `eval.js`: every candidate model gets the same prompt, the same
-  wishes, the same settings; results side by side. `?set=ambiguous` asks the
-  vague things people type; `?set=followups` asks for edits to a fixed world.
-- `evals/`: what was measured, and when.
+You might think this is just playful nonsense. Which is, actually, what a
+brave new world can be.
 
-## The harness
+A frontier model would do this far better. That was not the point. The point
+was to make the edge do it: 0.5 billion parameters, 300 MB once, your own GPU,
+and then nothing leaves your browser. Nothing leaves your brave new world.
 
-A 0.5B model writes HTML the way a child draws a house, so it is never asked
-to. It fills a grammar-enforced JSON spec; the sampler cannot produce anything
-else. What can still go wrong is language: at heat a small model drifts into
-symbols and glued-together words. `gibberish()` in `mind.js` catches that in
-the title, the lines, the labels and the doors, and the model is shown its
-attempt and asked again, at most twice. Everything else is repaired in place
-and reported in the console, never silently.
+One button wakes the mind. No model to pick, no settings. Before you wake it,
+three worlds it already dreamt can be stepped into with nothing downloaded, on
+any browser, on a phone.
 
-## Certainty, honestly
+## What you can do
 
-WebLLM reports each token's probability *after* the sampling temperature,
-which sharpens the distribution. The ribbon undoes that from the top five
-alternatives (`detemper()` in `mind.js`), so what you see is the model's own
-distribution at temperature 1, restricted to those five. It ignores the tail,
-so it is an upper bound on certainty.
+- **Wish for a world** in a few words, one word, a feeling, another language.
+  The page becomes it while the model writes: the sky, the things one by one
+  as they are named, the words, then the panel wherever the model put it.
+- **Watch it think.** Every token glows in the panel's ribbon and faintly
+  across the sky, colored by how sure the model was; hover one for the words
+  it almost said.
+- **Pull the levers** the model made for this world, hung on the things they
+  change: let night fall, more birds, let it storm.
+- **Tap a thing** and something happens to it; the sun becomes a moon, the
+  cat leaves, the bell stops the wind. Tap it again and you walk into it: the
+  camera leans in while the next world is dreamt from there.
+- **Tap the empty sky** for a shooting star, the ground to grow something
+  where you touched, the title to change the world's hand.
+- **Tap a ghost**, the faint thing the model almost placed, and walk into the
+  road it did not take.
+- **Take the door.** The model's own wish for the next world stands on a
+  signpost in the scene, with its price in seconds: 0 when it was already
+  dreamt while you looked.
+- **Ask for a change** ("make it night", "the same at noon", "take the boat
+  away") and the world is edited, not replaced.
+- **Tap the creature** for its head: what the grammar decided, what it chose,
+  where it doubted, what it nearly said.
+- **Keep a picture** of the world, or send it: the link is the whole world,
+  ghosts and doubts included, and opens without a download.
+- **Turn on the sound**, made in the tab from the world's sky, hour and weather.
+- **No GPU?** Three remembered dreams replay on any phone, forming the same way.
+- **Nothing leaves your device.** A hidden door points the page at a bigger
+  mind on your own server instead.
 
-## Running it
+## Where the rest is
 
-Needs WebGPU for the mind: Chrome, Edge, Safari 26, Firefox where it has
-shipped. On Linux, Chrome needs `chrome://flags/#enable-unsafe-webgpu` and
-`#enable-vulkan`. The first wake fetches the weights (300 MB); later visits use
-the browser cache. `?mock` dry-runs without a GPU, `?wish=…` dreams on load,
-`?demo=0` opens a remembered dream, `?model=` picks another WebLLM model.
-
-```bash
-python3 tools/serve.py 8765     # then open http://localhost:8765
-```
-
-A hidden door: `?mind=http://host:8010/v1` makes the mind any
-OpenAI-compatible server instead of the tab (vLLM, llama.cpp, or brainscope
-with `--cors` and `&guided=0`), so a model that would never fit in a browser
-can dream the same worlds, and with brainscope its residual stream plays on
-the other screen. The diagram and the why are in the GitHub README.
-
-Built with [WebLLM](https://github.com/mlc-ai/web-llm). Code and evals:
-https://github.com/moudrkat/brave-new-world
+The code, the evals with their findings, the film and the notes on how it is
+built are on GitHub: https://github.com/moudrkat/brave-new-world. Nothing
+here phones home: the model runs in your tab, and the only thing that leaves
+your browser is a link you choose to send.
