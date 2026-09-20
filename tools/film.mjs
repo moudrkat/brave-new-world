@@ -137,6 +137,9 @@ async function film() {
   // input layer when the window has focus, through the DOM when it does not
   const type = async (text) => {
     const INPUT = `${CON}.shadowRoot.getElementById("wish")`;
+    // never type over a dream (a walk, a fork) or into a line that still holds the last wish
+    for (let i = 0; i < 200; i++) { if (!(await ev("window.__bnw.dreaming"))) break; await sleep(300); }
+    await ev(`(() => { const i = ${INPUT}; i.value = ""; i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
     await pressSel("#wish", `${CON}.shadowRoot`);
     await ev(`${INPUT}.focus()`);
     let dom = false;
@@ -173,7 +176,14 @@ async function film() {
   };
   // a thing tapped: a surprise; the ground tapped: something grows
   const tapThing = async () => { const p = await spot(".el:not(.ghost):not(.mirror)"); if (!p) return false; beat("surprise"); await press(p.x, p.y); await sleep(HOLD_LEVER); return true; };
-  const tapGround = async () => { const g = JSON.parse(await ev(`JSON.stringify(document.querySelector(".ground")?.getBoundingClientRect() || null)`)); if (!g) return false; beat("sprout"); await press(VIEW.width * 0.3, Math.min(g.top + 40, VIEW.height * 0.62)); await sleep(HOLD_LEVER); return true; };
+  const tapGround = async () => {
+    const g = JSON.parse(await ev(`JSON.stringify(document.querySelector(".ground")?.getBoundingClientRect() || null)`)); if (!g) return false;
+    const y = Math.min(g.top + 40, VIEW.height * 0.62);
+    // a spot on the ground with nothing standing on it, so the tap sprouts instead of walking to a thing
+    const x = JSON.parse(await ev(`JSON.stringify((() => { const boxes = [...document.querySelectorAll(".el, .lever, .sign, .words")].map((e) => e.getBoundingClientRect()); for (const fx of [0.3, 0.7, 0.15, 0.85, 0.5, 0.4, 0.6]) { const x = ${VIEW.width} * fx; if (!boxes.some((b) => x > b.left - 8 && x < b.right + 8 && ${y} > b.top - 8 && ${y} < b.bottom + 8)) return x; } return null; })())`));
+    if (x == null) return false;
+    beat("sprout"); await press(x, y); await sleep(HOLD_LEVER); return true;
+  };
   const walkIntoGhost = async () => {
     const kind = await ev(`document.querySelector(".el.ghost")?.dataset.kind || ""`);
     if (!kind) return false;
