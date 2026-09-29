@@ -39,6 +39,13 @@ any browser, on a phone.
 
 ![a world forming as the model writes it](docs/opening.gif)
 
+**It is also an instrument.** The form the model fills in here (time of day,
+weather, ground, a few things, a poem, its own panel) is a typed readout:
+every box is a pick from a list. [steeropathy](https://github.com/moudrkat/steeropathy)
+uses it to see what a steering vector does inside a small model: add a
+direction to the model's activations, ask for *a place*, and the form says
+what changed. The sliders in that repo draw these worlds.
+
 ## What you can do
 
 - **Wish for a world** in a few words, one word, a feeling, another language.
